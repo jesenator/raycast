@@ -227,9 +227,22 @@ def create_calendar_event(event_data):
     
     # Create the event in the primary calendar
     created_event = service.events().insert(calendarId='primary', body=event).execute()
-    return created_event.get('htmlLink')
+    return created_event.get('htmlLink'), created_event.get('id')
   except Exception as e:
     raise ValueError(f"Error creating calendar event: {e}")
+
+def get_notion_calendar_url(event_id):
+  """Convert Google Calendar URL to Notion Calendar URL"""
+  # Get user email from environment variable
+  email = os.getenv('USER_EMAIL')
+  unique_id = os.getenv('UNIQUE_ID')
+  
+  # Combine components and encode as base64
+  path_to_encode = f"{event_id}/{email}/{unique_id}"
+  encoded_path = base64.b64encode(path_to_encode.encode('utf-8')).decode('utf-8')
+  
+  # Return the Notion Calendar URL
+  return f"https://calendar.notion.so/event/{encoded_path}"
 
 # ------------------ Main Function ------------------
 def main():
@@ -248,10 +261,19 @@ def main():
       print(f"Where: {event_data.get('location')}")
     
     print("\nCreating calendar event...")
-    calendar_url = create_calendar_event(event_data)
+    google_calendar_url, event_id = create_calendar_event(event_data)
     
-    # Open the calendar URL
-    subprocess.run(['open', calendar_url], check=False)
+    # Convert to Notion Calendar URL
+    print(f"Event ID: {event_id}")
+    try:
+      notion_calendar_url = get_notion_calendar_url(event_id)
+    except Exception as e:
+      print(f"Warning: Could not create Notion URL, using Google Calendar URL instead. Error: {e}")
+      notion_calendar_url = google_calendar_url
+
+    # print(f"Google calendar URL: {google_calendar_url}")
+    print(f"Opening Notion calendar URL: {notion_calendar_url}")
+    subprocess.run(['open', notion_calendar_url], check=False)
     
     # Final output for Raycast
     print(f"Event created: {event_data.get('title')}")
