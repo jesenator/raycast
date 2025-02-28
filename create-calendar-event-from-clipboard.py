@@ -44,7 +44,6 @@ if not GEMINI_API_KEY:
   sys.exit(1)
 
 # Path to store credentials
-# CONFIG_DIR = os.path.expanduser("~/.config/raycast-calendar-helper")
 CONFIG_DIR = os.path.expanduser("./")
 CREDENTIALS_PATH = os.path.join(CONFIG_DIR, "Google Calendar Client Secret.json")
 TOKEN_PATH = os.path.join(CONFIG_DIR, "token.json")
@@ -52,6 +51,8 @@ TOKEN_PATH = os.path.join(CONFIG_DIR, "token.json")
 GEMINI_MODEL = "gemini-2.0-flash"
 # Google API scope
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
+# Default timezone
+TIMEZONE = "America/Los_Angeles"
 
 # ------------------ Helper Functions ------------------
 def get_clipboard_content():
@@ -63,7 +64,7 @@ def get_clipboard_content():
   try:
     # Try to get image from clipboard using pngpaste
     result = subprocess.run(['pngpaste', img_path], 
-                           capture_output=True, text=True, check=False)
+                           capture_output=True, check=False)
     
     if result.returncode == 0:
       # Image found on clipboard
@@ -75,63 +76,48 @@ def get_clipboard_content():
     # Fall back to text
     os.unlink(img_path)
     text = subprocess.run(['pbpaste'], capture_output=True, text=True).stdout
+    if not text.strip():
+      raise ValueError("Clipboard is empty")
     return {'type': 'text', 'content': text}
   except Exception as e:
-    print(f"Error getting clipboard content: {e}")
     if os.path.exists(img_path):
       os.unlink(img_path)
-    sys.exit(1)
+    raise ValueError(f"Error getting clipboard content: {e}")
 
 def query_gemini(content):
   """Query Gemini API with content from clipboard."""
-  headers = {
-    "Content-Type": "application/json"
-  }
+  # Common prompt instructions for both text and image
+  prompt_instructions = """
+  Extract event details and return a JSON object with these fields:
+  - title: The event title
+  - start_time: The start time in ISO format (YYYY-MM-DDTHH:MM:SS)
+  - end_time: The end time in ISO format (YYYY-MM-DDTHH:MM:SS)
+  - location: The location (if any)
+  - description: Any additional details
+  
+  Use empty string instead of null for any missing values.
+  If no year is specified in the event details, assume the current year is 2025.
+  If there is no calendar event, return a JSON object with a single field: no_event: true
+  Only return valid JSON, no explanatory text before or after.
+  """
+  
+  headers = {"Content-Type": "application/json"}
   
   # Construct the request body based on content type
   if content['type'] == 'text':
     request_body = {
       "contents": [{
         "parts": [{
-          "text": f"""Extract event details from the following text. Return a JSON object with these fields:
-          - title: The event title
-          - start_time: The start time in ISO format (YYYY-MM-DDTHH:MM:SS)
-          - end_time: The end time in ISO format (YYYY-MM-DDTHH:MM:SS)
-          - location: The location (if any)
-          - description: Any additional details
-          
-          Use empty string instead of null for any missing values.
-          
-          If there is no calendar event in the text, return a JSON object with a single field:
-          - no_event: true
-          
-          Text: {content['content']}
-          
-          Only return valid JSON, no explanatory text before or after."""
+          "text": f"{prompt_instructions}\n\nText: {content['content']}"
         }]
       }]
     }
   else:  # image
-    # Encode image as base64
     image_b64 = base64.b64encode(content['content']).decode('utf-8')
     request_body = {
       "contents": [{
         "parts": [
-          {
-            "text": """Extract calendar event details from this image. Return a JSON object with these fields:
-            - title: The event title
-            - start_time: The start time in ISO format (YYYY-MM-DDTHH:MM:SS)
-            - end_time: The end time in ISO format (YYYY-MM-DDTHH:MM:SS)
-            - location: The location (if any)
-            - description: Any additional details
-            
-            Use empty string instead of null for any missing values.
-            
-            If there is no calendar event in the image, return a JSON object with a single field:
-            - no_event: true
-            
-            Only return valid JSON, no explanatory text before or after."""
-          },
+          {"text": prompt_instructions},
           {
             "inline_data": {
               "mime_type": "image/png",
@@ -160,71 +146,52 @@ def query_gemini(content):
       if json_match:
         response_text = json_match.group(1)
       
-      try:
-        # Replace any JSON null with empty strings before parsing
-        response_text = response_text.replace(': null', ': ""')
-        # Parse the JSON response
-        event_data = json.loads(response_text)
-        
-        # Check if Gemini found no event
-        if 'no_event' in event_data and event_data['no_event']:
-          print("\n❌ No calendar event found in the clipboard content.")
-          print("The content does not appear to contain event details.")
-          sys.exit(0)
-        
-        print("\n🤖 Gemini extracted the following event data:")
-        print(json.dumps(event_data, indent=2))
-        print()
-        return event_data
-      except json.JSONDecodeError:
-        print(f"Failed to parse JSON from Gemini response: {response_text}")
-        sys.exit(1)
+      # Replace any JSON null with empty strings before parsing
+      response_text = response_text.replace(': null', ': ""')
+      
+      # Parse the JSON response
+      event_data = json.loads(response_text)
+      
+      # Check if Gemini found no event
+      if 'no_event' in event_data and event_data['no_event']:
+        raise ValueError("No calendar event found in the clipboard content")
+      
+      print("\nExtracted event data:")
+      print(json.dumps(event_data, indent=2))
+      return event_data
     else:
-      print(f"Unexpected response format from Gemini API: {result}")
-      sys.exit(1)
+      raise ValueError("Failed to get a proper response from Gemini API")
+  except json.JSONDecodeError:
+    raise ValueError("Failed to parse JSON from Gemini response")
   except Exception as e:
-    print(f"Error querying Gemini API: {e}")
-    sys.exit(1)
+    raise ValueError(f"Error querying Gemini API: {e}")
 
-def setup_google_calendar():
-  """Set up Google Calendar API credentials if not already done."""
-  if not os.path.exists(CONFIG_DIR):
-    os.makedirs(CONFIG_DIR)
-    
+def get_google_credentials():
+  """Get and refresh Google API credentials."""
   if not os.path.exists(CREDENTIALS_PATH):
-    print("Google Calendar API credentials not found.")
-    print("Please visit https://developers.google.com/calendar/api/quickstart/python")
-    print("and follow the instructions to create OAuth credentials.")
-    print(f"Then save the credentials.json file to {CREDENTIALS_PATH}")
-    sys.exit(1)
-    
-  # Check if we have a valid token
-  if not os.path.exists(TOKEN_PATH):
-    authorize_google_calendar()
-  
-  return True
-
-def authorize_google_calendar():
-  """Run OAuth flow to authorize Google Calendar access."""
-  print("Authorizing Google Calendar access...")
+    raise ValueError(f"Google Calendar credentials not found at {CREDENTIALS_PATH}. Visit https://developers.google.com/calendar/api/quickstart/python to set up.")
   
   creds = None
   if os.path.exists(TOKEN_PATH):
     creds = Credentials.from_authorized_user_info(json.load(open(TOKEN_PATH)))
   
+  # If no credentials or they're invalid, refresh or run the flow
   if not creds or not creds.valid:
     if creds and creds.expired and creds.refresh_token:
+      print("Refreshing expired Google credentials...")
       creds.refresh(Request())
     else:
+      print("Authorizing Google Calendar access...")
       flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, SCOPES)
       creds = flow.run_local_server(port=0)
+    
+    # Save the refreshed/new credentials
     with open(TOKEN_PATH, 'w') as token:
       token.write(creds.to_json())
   
-  print("Authorization successful!")
-  return True
+  return creds
 
-def create_calendar_event(event_data, calendar_id=None):
+def create_calendar_event(event_data):
   """Create a Google Calendar event with the extracted data."""
   # Format the event data for Google Calendar
   event = {
@@ -233,11 +200,11 @@ def create_calendar_event(event_data, calendar_id=None):
     'description': event_data.get('description', ''),
     'start': {
       'dateTime': event_data.get('start_time', datetime.datetime.now().isoformat()),
-      'timeZone': 'America/Los_Angeles',  # You might want to make this configurable
+      'timeZone': TIMEZONE,
     },
     'end': {
       'dateTime': event_data.get('end_time', ''),
-      'timeZone': 'America/Los_Angeles',  # You might want to make this configurable
+      'timeZone': TIMEZONE,
     },
   }
   
@@ -253,52 +220,48 @@ def create_calendar_event(event_data, calendar_id=None):
       event['start']['dateTime'] = now.isoformat()
       event['end']['dateTime'] = (now + datetime.timedelta(hours=1)).isoformat()
   
-  # Load credentials and create API client
+  # Get credentials and create the event
   try:
-    creds = Credentials.from_authorized_user_info(json.load(open(TOKEN_PATH)))
+    creds = get_google_credentials()
     service = build('calendar', 'v3', credentials=creds)
     
-    # Use primary calendar if none specified
-    cal_id = calendar_id if calendar_id else 'primary'
-    
-    # Create the event
-    event = service.events().insert(calendarId=cal_id, body=event).execute()
-    calendar_url = event.get('htmlLink')
-    return f"Event created: {calendar_url}"
+    # Create the event in the primary calendar
+    created_event = service.events().insert(calendarId='primary', body=event).execute()
+    return created_event.get('htmlLink')
   except Exception as e:
-    print(f"Error creating calendar event: {e}")
-    sys.exit(1)
+    raise ValueError(f"Error creating calendar event: {e}")
 
 # ------------------ Main Function ------------------
 def main():
-  # Step 1: Get clipboard content
-  print("Reading clipboard content...")
-  clipboard_content = get_clipboard_content()
-  
-  # Step 2: Query Gemini API to extract event details
-  print(f"Analyzing {'image' if clipboard_content['type'] == 'image' else 'text'} with Gemini API...")
-  event_data = query_gemini(clipboard_content)
-  
-  # Step 3: Set up Google Calendar API if needed
-  print("Setting up Google Calendar access...")
-  setup_google_calendar()
-  
-  # Step 4: Create the calendar event
-  print("Creating calendar event...")
-  result = create_calendar_event(event_data)
-  
-  print(result)
-  print("✅ Calendar event created successfully!")
-  
-  # Step 5: Open the Google Calendar page in browser
-  calendar_url = None
-  url_match = re.search(r'Event created: (https://[^\s]+)', result)
-  if url_match:
-    calendar_url = url_match.group(1)
-    print("\n🌐 Opening event in browser...")
+  try:
+    print("Reading clipboard content...")
+    clipboard_content = get_clipboard_content()
+    
+    print(f"Analyzing {'image' if clipboard_content['type'] == 'image' else 'text'} with Gemini API...")
+    event_data = query_gemini(clipboard_content)
+    
+    # Print a simplified summary of the event
+    print("\nEvent Summary:")
+    print(f"Title: {event_data.get('title', 'Untitled Event')}")
+    print(f"When: {event_data.get('start_time', 'Unknown time')}")
+    if event_data.get('location'):
+      print(f"Where: {event_data.get('location')}")
+    
+    print("\nCreating calendar event...")
+    calendar_url = create_calendar_event(event_data)
+    
+    # Open the calendar URL
     subprocess.run(['open', calendar_url], check=False)
-  else:
-    print("\n⚠️ Could not extract calendar URL to open in browser.")
+    
+    # Final output for Raycast
+    print(f"Event created: {event_data.get('title')}")
+    
+  except ValueError as e:
+    print(f"{str(e)}")
+    sys.exit(1)
+  except Exception as e:
+    print(f"Unexpected error: {str(e)}")
+    sys.exit(1)
 
 if __name__ == "__main__":
   main()
