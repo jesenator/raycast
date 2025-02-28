@@ -1,0 +1,6 @@
+.env
+.venv
+.DS_Store
+script-commands/*
+token.json
+Google Calendar Client Secret.json
