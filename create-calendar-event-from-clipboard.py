@@ -3,7 +3,7 @@
 # Required parameters:
 # @raycast.schemaVersion 1
 # @raycast.title Create calendar event from clipboard
-# @raycast.mode compact
+# @raycast.mode silent
 
 # Optional parameters:
 # @raycast.icon 🗓️
@@ -13,6 +13,10 @@
 # @raycast.description Create a calendar event in Google Calendar from your last copied item (either image or text)
 # @raycast.author Jesse Gilbert
 
+
+# TODO:
+# - add a loading indicator
+
 import os
 import sys
 import json
@@ -21,10 +25,7 @@ import subprocess
 import datetime
 import re
 import tempfile
-from pathlib import Path
 import http.client
-import urllib.parse
-import urllib.request
 from dotenv import load_dotenv
 
 # Add Google API imports
@@ -53,6 +54,7 @@ GEMINI_MODEL = "gemini-2.0-flash"
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
 # Default timezone
 TIMEZONE = "America/Los_Angeles"
+
 
 # ------------------ Helper Functions ------------------
 def get_clipboard_content():
@@ -84,40 +86,43 @@ def get_clipboard_content():
       os.unlink(img_path)
     raise ValueError(f"Error getting clipboard content: {e}")
 
-def query_gemini(content):
-  """Query Gemini API with content from clipboard."""
-  # Common prompt instructions for both text and image
-  prompt_instructions = """
-  Extract event details and return a JSON object with these fields:
-  - title: The event title
-  - start_time: The start time in ISO format (YYYY-MM-DDTHH:MM:SS)
-  - end_time: The end time in ISO format (YYYY-MM-DDTHH:MM:SS)
-  - location: The location (if any)
-  - description: Any additional details
+def create_gemini_request_body(content):
+  """Create the appropriate request body based on content type."""
+  now = datetime.datetime.now()
+  current_date = now.strftime("%Y-%m-%d")
+  day_of_week = now.strftime("%A")
+
+  prompt = f"""
+Extract ONLY ONE event detail and return a JSON object with these fields:
+- title: The event title
+- start_time: The start time in ISO format (YYYY-MM-DDTHH:MM:SS)
+- end_time: The end time in ISO format (YYYY-MM-DDTHH:MM:SS)
+- location: The location (if any)
+- description: Any additional details
+
+If multiple events are detected, only extract the first/most prominent one.
+Use empty string instead of null for any missing values.
+If no year is specified in the event details, assume the current year is 2025.
+If there is no calendar event, return a JSON object with a single field: no_event: true
+Only return valid JSON, no explanatory text before or after.
+Today's date: {current_date} ({day_of_week})
+"""
+
   
-  Use empty string instead of null for any missing values.
-  If no year is specified in the event details, assume the current year is 2025.
-  If there is no calendar event, return a JSON object with a single field: no_event: true
-  Only return valid JSON, no explanatory text before or after.
-  """
-  
-  headers = {"Content-Type": "application/json"}
-  
-  # Construct the request body based on content type
   if content['type'] == 'text':
-    request_body = {
+    return {
       "contents": [{
         "parts": [{
-          "text": f"{prompt_instructions}\n\nText: {content['content']}"
+          "text": f"{prompt}\n\nText: {content['content']}"
         }]
       }]
     }
   else:  # image
     image_b64 = base64.b64encode(content['content']).decode('utf-8')
-    request_body = {
+    return {
       "contents": [{
         "parts": [
-          {"text": prompt_instructions},
+          {"text": prompt},
           {
             "inline_data": {
               "mime_type": "image/png",
@@ -127,6 +132,11 @@ def query_gemini(content):
         ]
       }]
     }
+
+def query_gemini(content):
+  """Query Gemini API with content from clipboard."""
+  headers = {"Content-Type": "application/json"}
+  request_body = create_gemini_request_body(content)
   
   # Make API request
   conn = http.client.HTTPSConnection("generativelanguage.googleapis.com")
@@ -173,7 +183,8 @@ def get_google_credentials():
   
   creds = None
   if os.path.exists(TOKEN_PATH):
-    creds = Credentials.from_authorized_user_info(json.load(open(TOKEN_PATH)))
+    with open(TOKEN_PATH) as token_file:
+      creds = Credentials.from_authorized_user_info(json.load(token_file))
   
   # If no credentials or they're invalid, refresh or run the flow
   if not creds or not creds.valid:
@@ -194,48 +205,51 @@ def get_google_credentials():
 def create_calendar_event(event_data):
   """Create a Google Calendar event with the extracted data."""
   # Format the event data for Google Calendar
+  now = datetime.datetime.now()
+  
+  # Get start_time or default to now
+  start_time = event_data.get('start_time', now.isoformat())
+  
+  # Set end_time (start_time + 1 hour if not specified)
+  end_time = event_data.get('end_time', '')
+  if not end_time:
+    try:
+      start_dt = datetime.datetime.fromisoformat(start_time)
+      end_time = (start_dt + datetime.timedelta(hours=1)).isoformat()
+    except ValueError:
+      # If we can't parse the start time, use current time + 1 hour
+      end_time = (now + datetime.timedelta(hours=1)).isoformat()
+  
   event = {
     'summary': event_data.get('title', 'Untitled Event'),
     'location': event_data.get('location', ''),
     'description': event_data.get('description', ''),
     'start': {
-      'dateTime': event_data.get('start_time', datetime.datetime.now().isoformat()),
+      'dateTime': start_time,
       'timeZone': TIMEZONE,
     },
     'end': {
-      'dateTime': event_data.get('end_time', ''),
+      'dateTime': end_time,
       'timeZone': TIMEZONE,
     },
   }
   
-  # If end_time is missing, default to start_time + 1 hour
-  if not event_data.get('end_time'):
-    try:
-      start_dt = datetime.datetime.fromisoformat(event_data.get('start_time'))
-      end_dt = start_dt + datetime.timedelta(hours=1)
-      event['end']['dateTime'] = end_dt.isoformat()
-    except:
-      # If we can't parse the start time, use current time + 1 hour
-      now = datetime.datetime.now()
-      event['start']['dateTime'] = now.isoformat()
-      event['end']['dateTime'] = (now + datetime.timedelta(hours=1)).isoformat()
-  
   # Get credentials and create the event
-  try:
-    creds = get_google_credentials()
-    service = build('calendar', 'v3', credentials=creds)
-    
-    # Create the event in the primary calendar
-    created_event = service.events().insert(calendarId='primary', body=event).execute()
-    return created_event.get('htmlLink'), created_event.get('id')
-  except Exception as e:
-    raise ValueError(f"Error creating calendar event: {e}")
+  creds = get_google_credentials()
+  service = build('calendar', 'v3', credentials=creds)
+  
+  # Create the event in the primary calendar
+  created_event = service.events().insert(calendarId='primary', body=event).execute()
+  return created_event.get('htmlLink'), created_event.get('id')
 
-def get_notion_calendar_url(event_id):
+def get_notion_calendar_url(event_id: str) -> str:
   """Convert Google Calendar URL to Notion Calendar URL"""
   # Get user email from environment variable
   email = os.getenv('USER_EMAIL')
   unique_id = os.getenv('UNIQUE_ID')
+  
+  if not email or not unique_id:
+    raise ValueError("USER_EMAIL or UNIQUE_ID not found in environment")
   
   # Combine components and encode as base64
   path_to_encode = f"{event_id}/{email}/{unique_id}"
@@ -267,13 +281,12 @@ def main():
     print(f"Event ID: {event_id}")
     try:
       notion_calendar_url = get_notion_calendar_url(event_id)
+      print(f"Opening Notion calendar URL: {notion_calendar_url}")
+      subprocess.run(['open', notion_calendar_url], check=False)
     except Exception as e:
       print(f"Warning: Could not create Notion URL, using Google Calendar URL instead. Error: {e}")
-      notion_calendar_url = google_calendar_url
-
-    # print(f"Google calendar URL: {google_calendar_url}")
-    print(f"Opening Notion calendar URL: {notion_calendar_url}")
-    subprocess.run(['open', notion_calendar_url], check=False)
+      print(f"Opening Google calendar URL: {google_calendar_url}")
+      subprocess.run(['open', google_calendar_url], check=False)
     
     # Final output for Raycast
     print(f"Event created: {event_data.get('title')}")
