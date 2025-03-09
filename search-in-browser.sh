@@ -9,8 +9,9 @@
 # @raycast.icon 🔍
 
 # Documentation:
-# @raycast.description Open links directly or search selected text in Google. Uses clipboard if no text selected.
+# @raycast.description Open links directly or search selected text in Google. Uses clipboard if no text selected. Performs OCR on clipboard images.
 # @raycast.author Jesse Gilbert
+# @raycast.dependencies ["pngpaste", "tesseract"]
 
 # Save initial clipboard content
 initial_clipboard=$(pbpaste)
@@ -38,8 +39,21 @@ if [ "$text" = "$initial_clipboard" ]; then
   text=$initial_clipboard
 fi
 
+# Check if clipboard contains an image
+temp_image="./raycast_clipboard_image.png"
+
+if pngpaste "$temp_image" 2>/dev/null; then
+  # Perform OCR on the image and capture output directly
+  image_text=$(tesseract "$temp_image" stdout 2>/dev/null)
+  if [ -n "$image_text" ]; then
+    text="$image_text"
+  fi
+  # Clean up temporary image file
+  rm -f "$temp_image"
+fi
+
 if [ -z "$text" ]; then
-  echo "No text selected or in clipboard"
+  echo "No text selected, in clipboard, or recognized from image"
   exit 1
 fi
 
