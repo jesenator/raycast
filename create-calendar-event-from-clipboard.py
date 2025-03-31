@@ -93,19 +93,21 @@ def create_gemini_request_body(content):
   day_of_week = now.strftime("%A")
 
   prompt = f"""
-Extract ONLY ONE event detail and return a JSON object with these fields:
+Extract ONLY ONE event detail from the following text/image and return a JSON object with these fields:
 - title: The event title
 - start_time: The start time in ISO format (YYYY-MM-DDTHH:MM:SS)
 - end_time: The end time in ISO format (YYYY-MM-DDTHH:MM:SS)
 - location: The location (if any)
 - description: Any additional details
 
-If multiple events are detected, only extract the first/most prominent one.
-Use empty string instead of null for any missing values.
-If no year is specified in the event details, assume the current year is 2025.
-If there is no calendar event, return a JSON object with a single field: no_event: true
-Only return valid JSON, no explanatory text before or after.
-Today's date: {current_date} ({day_of_week})
+Notes: 
+- If multiple events are detected, only extract the first/most prominent one.
+- Use empty string instead of null for any missing values.
+- If there is no calendar event, return a JSON object with a single field: no_event: true
+- Only return valid JSON, no explanatory text before or after.
+- If no start/end time is explicitly stated in the text/image, make a best guess based on the type of event.
+- Feel free to take liberties in the naming and details of the event to make it useful.
+- Today's date: {current_date} ({day_of_week})
 """
 
   
