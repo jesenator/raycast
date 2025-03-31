@@ -14,8 +14,30 @@
 # @raycast.author Jesse Gilbert
 
 
-# TODO:
-# - add a loading indicator
+# TODO
+# - add a loading indicator (not sure if this is possible)
+
+'''
+### setup ###
+files needed
+- create-calendar-event-from-clipboard.py
+- Google Calendar Client Secret.json
+- requirements.txt
+
+Make a new .env file
+- go to aistudio.google.com to get and set the GEMINI_API_KEY in the .env file
+- optional: if you want the event link to open in Notion calendar instead of Google calendar, you'll have to do some annoying things that I'll need to explain to get and set the USER_EMAIL and UNIQUE_ID in the .env file
+
+set up python environment and replace the python path at the top of this file
+
+install requirements
+- pip install -r requirements.txt
+- brew install pngpaste
+
+set up script in raycast
+- add directory to custom scripts
+- optional: set up a keyboard shortcut to run the script (I use ctrl+cmd+c)
+'''
 
 import os
 import sys
