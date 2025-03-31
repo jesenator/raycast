@@ -57,8 +57,8 @@ if [ -z "$text" ]; then
   exit 1
 fi
 
-# Check if the text is a URL (supports http, https, www.)
-if [[ $text =~ ^(https?://|www\.) ]] || [[ $text =~ \.(com|org|edu|net|io|dev|ai|app|co|me|so|tech|xyz|gov|mil|int|eu|uk|ca|au|de|fr|jp|cn|ru|in|br)(/.*)?$ ]]; then
+# Check if the text is a URL
+if [[ $text =~ ^(https?://|www\.) ]] || [[ $text =~ ^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)+(/.*)?$ ]]; then
   # Add https:// if the URL doesn't start with http:// or https://
   if [[ ! $text =~ ^https?:// ]]; then
     text="https://$text"
