@@ -46,7 +46,8 @@ if pngpaste "$temp_image" 2>/dev/null; then
   # Perform OCR on the image and capture output directly
   image_text=$(tesseract "$temp_image" stdout 2>/dev/null)
   if [ -n "$image_text" ]; then
-    text="$image_text"
+    # Replace newlines with spaces and clean up extra spaces
+    text=$(echo "$image_text" | tr '\n' ' ' | tr -s ' ')
   fi
   # Clean up temporary image file
   rm -f "$temp_image"
