@@ -24,9 +24,13 @@ def is_notion_active():
     return False
 
 def send_shortcut_with_applescript():
+  # key code 18 using {control down, shift down}
   applescript = '''
   tell application "System Events"
-    key code 18 using {control down, shift down}
+    repeat 7 times
+      key code 32 using {command down, shift down}
+      delay 0.1
+    end repeat
   end tell
   '''
   subprocess.run(["osascript", "-e", applescript])
