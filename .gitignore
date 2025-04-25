@@ -4,3 +4,4 @@
 script-commands/*
 token.json
 Google Calendar Client Secret.json
+__pycache__/

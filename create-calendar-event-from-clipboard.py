@@ -46,9 +46,9 @@ import base64
 import subprocess
 import datetime
 import re
-import tempfile
 import http.client
 from dotenv import load_dotenv
+from utils import get_clipboard_content
 
 # Add Google API imports
 from google.oauth2.credentials import Credentials
@@ -79,35 +79,6 @@ TIMEZONE = "America/Los_Angeles"
 
 
 # ------------------ Helper Functions ------------------
-def get_clipboard_content():
-  """Get content from clipboard, detect if it's text or image."""
-  # First check if there's an image on the clipboard
-  with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
-    img_path = temp_file.name
-  
-  try:
-    # Try to get image from clipboard using pngpaste
-    result = subprocess.run(['pngpaste', img_path], 
-                           capture_output=True, check=False)
-    
-    if result.returncode == 0:
-      # Image found on clipboard
-      with open(img_path, 'rb') as img_file:
-        img_data = img_file.read()
-      os.unlink(img_path)
-      return {'type': 'image', 'content': img_data}
-    
-    # Fall back to text
-    os.unlink(img_path)
-    text = subprocess.run(['pbpaste'], capture_output=True, text=True).stdout
-    if not text.strip():
-      raise ValueError("Clipboard is empty")
-    return {'type': 'text', 'content': text}
-  except Exception as e:
-    if os.path.exists(img_path):
-      os.unlink(img_path)
-    raise ValueError(f"Error getting clipboard content: {e}")
-
 def create_gemini_request_body(content):
   """Create the appropriate request body based on content type."""
   now = datetime.datetime.now()
