@@ -4,6 +4,7 @@ import os
 import sys
 import json
 import datetime
+from datetime import datetime, timedelta
 import requests
 import subprocess
 import tempfile
@@ -27,6 +28,15 @@ def get_clipboard_text(): # not used currently
   except Exception as e:
     print(f"Error getting clipboard content: {str(e)}")
     return None
+
+def copy_to_clipboard(text):
+  """Copy text to clipboard."""
+  try:
+    subprocess.run(['pbcopy'], input=text.encode('utf-8'), check=True)
+    return True
+  except Exception as e:
+    print(f"Error copying to clipboard: {str(e)}")
+    return False
 
 def get_clipboard_content():
   """Get content from clipboard, detect if it's text or image.
@@ -108,16 +118,26 @@ def add_task_to_notion(task_name, due_date=None):
     response = requests.post(url, headers=headers, json=data)
     
     if response.status_code == 200:
-      print(f"✅ Added task: {task_name}" + (f" (due {due_date})" if due_date else ""))
-      return True
+      if due_date:
+        days_from_now = (datetime.strptime(due_date, "%Y-%m-%d") - datetime.now()).days + 1
+        due_date_str = f'(T-{days_from_now} day{"" if days_from_now == 1 else "s"}) '
+      else:
+        due_date_str = ''
+      
+      # Get the created task ID and generate the URL
+      task_id = response.json().get("id", "").replace("-", "")
+      task_url = f"https://www.notion.so/jessegilbert/{task_id}"
+      
+      print(f"✅ {due_date_str}{task_name}")
+      return True, task_url
     else:
       error_msg = response.json().get("message", "Unknown error")
       print(f"Error: {error_msg}")
-      return False
+      return False, None
   
   except Exception as e:
     print(f"Error: {str(e)}")
-    return False
+    return False, None
 
 def parse_date(date_str):
   """Parse date string into ISO format date."""
@@ -127,11 +147,16 @@ def parse_date(date_str):
   try:
     # Handle special cases first
     if date_str.lower() in ["today", "now"]:
-      return datetime.datetime.now().strftime("%Y-%m-%d")
+      return datetime.now().strftime("%Y-%m-%d")
     elif date_str.lower() in ["tomorrow", "tmr", "tmrw"]:
-      return (datetime.datetime.now() + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+      return (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     elif date_str.lower() == "later":
-      return (datetime.datetime.now() + datetime.timedelta(days=5)).strftime("%Y-%m-%d")
+      return (datetime.now() + timedelta(days=5)).strftime("%Y-%m-%d")
+    
+    # Handle if input is just a number (days from now)
+    if date_str.isdigit():
+      days = int(date_str)
+      return (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
     
     # Handle days of the week
     days_mapping = {
@@ -146,7 +171,7 @@ def parse_date(date_str):
     
     if date_str.lower() in days_mapping:
       target_weekday = days_mapping[date_str.lower()]
-      today = datetime.datetime.now()
+      today = datetime.now()
       current_weekday = today.weekday()
       
       # Calculate days to add to get to the target weekday
@@ -154,7 +179,7 @@ def parse_date(date_str):
       if days_to_add == 0:  # If today is the target day, schedule for next week
         days_to_add = 7
         
-      target_date = today + datetime.timedelta(days=days_to_add)
+      target_date = today + timedelta(days=days_to_add)
       return target_date.strftime("%Y-%m-%d")
     
     # Try common date formats
@@ -162,14 +187,14 @@ def parse_date(date_str):
       try:
         # Handle short date formats that don't include year
         if fmt in ["%m/%d", "%m-%d"]:
-          date_obj = datetime.datetime.strptime(date_str, fmt)
+          date_obj = datetime.strptime(date_str, fmt)
           # Add current year
-          date_obj = date_obj.replace(year=datetime.datetime.now().year)
+          date_obj = date_obj.replace(year=datetime.now().year)
           # If the date is in the past, use next year
-          if date_obj < datetime.datetime.now():
-            date_obj = date_obj.replace(year=datetime.datetime.now().year + 1)
+          if date_obj < datetime.now():
+            date_obj = date_obj.replace(year=datetime.now().year + 1)
           return date_obj.strftime("%Y-%m-%d")
-        return datetime.datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
+        return datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
       except ValueError:
         continue
     

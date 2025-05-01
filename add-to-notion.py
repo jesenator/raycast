@@ -3,7 +3,7 @@
 # Required parameters:
 # @raycast.schemaVersion 1
 # @raycast.title Add to Notion
-# @raycast.mode compact
+# @raycast.mode silent
 # @raycast.argument1 { "name": "task", "placeholder": "Task name", "type": "text", "optional": false }
 # @raycast.argument2 { "name": "date", "placeholder": "Due date (optional)", "type": "text", "optional": true }
 
@@ -15,7 +15,7 @@
 # @raycast.author Jesse Gilbert
 
 import sys
-from utils import parse_date, add_task_to_notion
+from utils import parse_date, add_task_to_notion, copy_to_clipboard
 
 def main():
   # Get command line arguments
@@ -26,7 +26,10 @@ def main():
   parsed_date = parse_date(date) if date else None
   
   # Add task to Notion
-  success = add_task_to_notion(task, parsed_date)
+  success, task_url = add_task_to_notion(task, parsed_date)
+  
+  if success and task_url:
+    copy_to_clipboard(task_url)
   
   if not success:
     sys.exit(1)
