@@ -9,6 +9,8 @@ import requests
 import subprocess
 import tempfile
 from dotenv import load_dotenv
+import re
+import time
 
 # Load environment variables
 load_dotenv()
@@ -100,11 +102,13 @@ def add_task_to_notion(task_name, due_date=None):
   
   # Add due date if provided
   if due_date:
-    properties["Due date"] = {
-      "date": {
-        "start": due_date
-      }
-    }
+    date_payload = {"start": due_date}
+    if "T" in due_date:
+      start_dt = datetime.fromisoformat(due_date)
+      end_dt = start_dt + timedelta(minutes=30)
+      date_payload["end"] = end_dt.isoformat()
+        
+    properties["Due date"] = {"date": date_payload}
   
   # Create the request body
   data = {
@@ -119,7 +123,10 @@ def add_task_to_notion(task_name, due_date=None):
     
     if response.status_code == 200:
       if due_date:
-        days_from_now = (datetime.strptime(due_date, "%Y-%m-%d") - datetime.now()).days + 1
+        date_part = due_date.split("T")[0] if 'T' in due_date else due_date
+        due_date_obj = datetime.strptime(date_part, "%Y-%m-%d")
+
+        days_from_now = (due_date_obj - datetime.now()).days + 1
         due_date_str = f'(T-{days_from_now} day{"" if days_from_now == 1 else "s"}) '
       else:
         due_date_str = ''
@@ -140,24 +147,50 @@ def add_task_to_notion(task_name, due_date=None):
     return False, None
 
 def parse_date(date_str):
-  """Parse date string into ISO format date."""
+  """Parse date string into ISO format date or datetime string."""
   if not date_str:
     return None
-  
+
+  today = datetime.now()
   try:
     # Handle special cases first
     if date_str.lower() in ["today", "now"]:
-      return datetime.now().strftime("%Y-%m-%d")
+      return today.strftime("%Y-%m-%d")
     elif date_str.lower() in ["tomorrow", "tmr", "tmrw"]:
-      return (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+      return (today + timedelta(days=1)).strftime("%Y-%m-%d")
     elif date_str.lower() == "later":
-      return (datetime.now() + timedelta(days=5)).strftime("%Y-%m-%d")
-    
+      return (today + timedelta(days=5)).strftime("%Y-%m-%d")
+
     # Handle if input is just a number (days from now)
     if date_str.isdigit():
       days = int(date_str)
-      return (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
+      return (today + timedelta(days=days)).strftime("%Y-%m-%d")
+
+    # Check if input is a time format (12:30am, 5:00pm, etc.)
+    time_pattern = re.compile(r'^(\d{1,2}):?(\d{2})?\s*(am|pm|a|p)?$', re.IGNORECASE)
+    time_match = time_pattern.match(date_str.strip())
     
+    if time_match:
+      hour = int(time_match.group(1))
+      minute = int(time_match.group(2) or 0)
+      ampm = time_match.group(3)
+      
+      # Handle AM/PM
+      if ampm and ampm.lower() in ['pm', 'p'] and hour < 12:
+        hour += 12
+      elif ampm and ampm.lower() in ['am', 'a'] and hour == 12:
+        hour = 0
+      
+      # Create datetime object for today with the specified time
+      now = datetime.now()
+      dt_obj = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+      
+      # If the resulting time is in the past *today*, assume it's for *tomorrow*
+      if dt_obj < now:
+          dt_obj += timedelta(days=1)
+      
+      return dt_obj.astimezone().isoformat(timespec='milliseconds')
+        
     # Handle days of the week
     days_mapping = {
       "monday": 0, "mon": 0, 
@@ -171,7 +204,6 @@ def parse_date(date_str):
     
     if date_str.lower() in days_mapping:
       target_weekday = days_mapping[date_str.lower()]
-      today = datetime.now()
       current_weekday = today.weekday()
       
       # Calculate days to add to get to the target weekday
@@ -203,5 +235,6 @@ def parse_date(date_str):
     return None
   
   except Exception as e:
-    print(f"Error parsing date: {str(e)}")
+    # Catch any unexpected errors during parsing
+    print(f"Error parsing date '{date_str}': {str(e)}")
     return None 
