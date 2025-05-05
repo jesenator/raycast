@@ -151,90 +151,70 @@ def parse_date(date_str):
   if not date_str:
     return None
 
-  today = datetime.now()
   try:
-    # Handle special cases first
-    if date_str.lower() in ["today", "now"]:
-      return today.strftime("%Y-%m-%d")
-    elif date_str.lower() in ["tomorrow", "tmr", "tmrw"]:
-      return (today + timedelta(days=1)).strftime("%Y-%m-%d")
-    elif date_str.lower() == "later":
-      return (today + timedelta(days=5)).strftime("%Y-%m-%d")
+    s = date_str.strip().lower()
+    now = datetime.now()
 
-    # Handle if input is just a number (days from now)
-    if date_str.isdigit():
-      days = int(date_str)
-      return (today + timedelta(days=days)).strftime("%Y-%m-%d")
+    # Handle special keyword dates
+    if s == 'now':
+      minute = (now.minute + 14) // 15 * 15
+      dt = now.replace(minute=minute if minute < 60 else 0, second=0, microsecond=0)
+      if minute == 60:
+        dt += timedelta(hours=1)
+      return dt.astimezone().isoformat(timespec='milliseconds')
+    elif s == 'today':
+      return now.strftime('%Y-%m-%d')
+    if s in {'tomorrow', 'tmr', 'tmrw'}:
+      return (now + timedelta(days=1)).strftime('%Y-%m-%d')
+    if s == 'later':
+      return (now + timedelta(days=5)).strftime('%Y-%m-%d')
 
-    # Check if input is a time format (12:30am, 5:00pm, etc.)
-    time_pattern = re.compile(r'^(\d{1,2}):?(\d{2})?\s*(am|pm|a|p)?$', re.IGNORECASE)
-    time_match = time_pattern.match(date_str.strip())
-    
-    if time_match:
-      hour = int(time_match.group(1))
-      minute = int(time_match.group(2) or 0)
-      ampm = time_match.group(3)
-      
-      # Handle AM/PM
-      if ampm and ampm.lower() in ['pm', 'p'] and hour < 12:
+    # Handle numeric input as days from now
+    if s.isdigit():
+      return (now + timedelta(days=int(s))).strftime('%Y-%m-%d')
+
+    # Handle time formats (12:30am, 5:00pm, etc.)
+    m = re.match(r'^(\d{1,2}):?(\d{2})?\s*(am|pm|a|p)?$', s)
+    if m:
+      hour = int(m.group(1))
+      minute = int(m.group(2) or 0)
+      ampm = m.group(3)
+      if ampm and ampm.startswith('p') and hour < 12:
         hour += 12
-      elif ampm and ampm.lower() in ['am', 'a'] and hour == 12:
+      if ampm and ampm.startswith('a') and hour == 12:
         hour = 0
-      
-      # Create datetime object for today with the specified time
-      now = datetime.now()
-      dt_obj = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-      
-      # If the resulting time is in the past *today*, assume it's for *tomorrow*
-      if dt_obj < now:
-          dt_obj += timedelta(days=1)
-      
-      return dt_obj.astimezone().isoformat(timespec='milliseconds')
-        
-    # Handle days of the week
-    days_mapping = {
-      "monday": 0, "mon": 0, 
-      "tuesday": 1, "tue": 1, "tues": 1,
-      "wednesday": 2, "wed": 2, "weds": 2,
-      "thursday": 3, "thu": 3, "thur": 3, "thurs": 3,
-      "friday": 4, "fri": 4,
-      "saturday": 5, "sat": 5,
-      "sunday": 6, "sun": 6
+      dt = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+      if dt < now:
+        dt += timedelta(days=1)
+      return dt.astimezone().isoformat(timespec='milliseconds')
+
+    # Handle weekday names
+    weekdays = {
+      'monday': 0, 'mon': 0,
+      'tuesday': 1, 'tue': 1, 'tues': 1,
+      'wednesday': 2, 'wed': 2, 'weds': 2,
+      'thursday': 3, 'thu': 3, 'thur': 3, 'thurs': 3,
+      'friday': 4, 'fri': 4,
+      'saturday': 5, 'sat': 5,
+      'sunday': 6, 'sun': 6
     }
-    
-    if date_str.lower() in days_mapping:
-      target_weekday = days_mapping[date_str.lower()]
-      current_weekday = today.weekday()
-      
-      # Calculate days to add to get to the target weekday
-      days_to_add = (target_weekday - current_weekday) % 7
-      if days_to_add == 0:  # If today is the target day, schedule for next week
-        days_to_add = 7
-        
-      target_date = today + timedelta(days=days_to_add)
-      return target_date.strftime("%Y-%m-%d")
-    
-    # Try common date formats
-    for fmt in ["%Y-%m-%d", "%m/%d/%Y", "%m/%d", "%m-%d"]:
+    if s in weekdays:
+      days_ahead = (weekdays[s] - now.weekday()) % 7 or 7
+      return (now + timedelta(days=days_ahead)).strftime('%Y-%m-%d')
+
+    # Handle standard date formats
+    for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%m/%d', '%m-%d'):
       try:
-        # Handle short date formats that don't include year
-        if fmt in ["%m/%d", "%m-%d"]:
-          date_obj = datetime.strptime(date_str, fmt)
-          # Add current year
-          date_obj = date_obj.replace(year=datetime.now().year)
-          # If the date is in the past, use next year
-          if date_obj < datetime.now():
-            date_obj = date_obj.replace(year=datetime.now().year + 1)
-          return date_obj.strftime("%Y-%m-%d")
-        return datetime.strptime(date_str, fmt).strftime("%Y-%m-%d")
+        dt = datetime.strptime(date_str, fmt)
+        if fmt in ('%m/%d', '%m-%d'):
+          dt = dt.replace(year=now.year)
+          if dt < now:
+            dt = dt.replace(year=now.year + 1)
+        return dt.strftime('%Y-%m-%d')
       except ValueError:
-        continue
-    
-    # If all else fails, return None
-    print(f"Warning: Could not parse date '{date_str}', skipping due date")
-    return None
-  
+        pass
+
+    return None 
   except Exception as e:
-    # Catch any unexpected errors during parsing
     print(f"Error parsing date '{date_str}': {str(e)}")
     return None 
