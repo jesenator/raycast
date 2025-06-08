@@ -96,9 +96,12 @@ Extract ONLY ONE event detail from the following text/image and return a JSON ob
 Notes: 
 - If multiple events are detected, only extract the first/most prominent one.
 - Use empty string instead of null for any missing values.
-- If there is no calendar event, return a JSON object with a single field: no_event: true
 - Only return valid JSON, no explanatory text before or after.
 - If no start/end time is explicitly stated in the text/image, make a best guess based on the type of event.
+- If there is no text/image, or the text/image given obviously doesn't actually represent a calendar event and was likley a mistake, return a JSON object with a single field: no_event: true
+  - Examples of non-calendar events:
+      - "do first 500 website people"
+
 - Feel free to take liberties in the naming and details of the event to make it useful.
 - Today's date: {current_date} ({day_of_week})
 """
