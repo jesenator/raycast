@@ -5,3 +5,4 @@ script-commands/*
 token.json
 Google Calendar Client Secret.json
 __pycache__/
+raycast_utils.log

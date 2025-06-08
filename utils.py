@@ -11,6 +11,7 @@ import tempfile
 from dotenv import load_dotenv
 import re
 import time
+import google.generativeai as genai
 
 # Load environment variables
 load_dotenv()
@@ -218,3 +219,80 @@ def parse_date(date_str):
   except Exception as e:
     print(f"Error parsing date '{date_str}': {str(e)}")
     return None 
+
+# ------------------- Gemini Functions -------------------
+
+def ask_gemini(prompt):
+  """Send a prompt to Gemini 2.5 Flash and get response."""
+  # Get API key from environment
+  api_key = os.getenv("GEMINI_API_KEY")
+  if not api_key:
+    print("Error: GEMINI_API_KEY not found in environment")
+    return None
+  
+  # Configure Gemini
+  genai.configure(api_key=api_key)
+  
+  try:
+    # Use Gemini 2.5 Flash model
+    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    
+    # Generate response
+    response = model.generate_content(prompt)
+    return response.text.strip()
+    
+  except Exception as e:
+    print(f"Error calling Gemini API: {str(e)}")
+    return None
+
+def get_selected_text_or_all():
+  """Get selected text from active app, or select all if nothing selected."""
+  # Get the frontmost app
+  active_app = subprocess.run([
+    'osascript', '-e', 
+    'tell application "System Events" to get name of first application process whose frontmost is true'
+  ], capture_output=True, text=True).stdout.strip()
+  print(f"active_app: {active_app}")
+  
+  # Save initial clipboard
+  initial_clipboard = subprocess.run(['pbpaste'], capture_output=True, text=True).stdout
+  
+  # Copy selected text
+  subprocess.run([
+    'osascript', '-e',
+    f'tell application "System Events" to tell application process "{active_app}" to keystroke "c" using command down'
+  ])
+  
+  # Small delay to ensure clipboard is updated
+  time.sleep(0.05)
+  
+  # Get clipboard contents
+  selected_text = subprocess.run(['pbpaste'], capture_output=True, text=True).stdout
+
+  # If nothing was selected or clipboard hasn't changed, select all
+  if not selected_text or selected_text == initial_clipboard:
+    # Select all
+    subprocess.run([
+      'osascript', '-e',
+      f'tell application "System Events" to tell application process "{active_app}" to keystroke "a" using command down'
+    ])
+    
+    time.sleep(0.05)
+    
+    # Copy again
+    subprocess.run([
+      'osascript', '-e',
+      f'tell application "System Events" to tell application process "{active_app}" to keystroke "c" using command down'
+    ])
+    
+    time.sleep(0.05)
+    selected_text = subprocess.run(['pbpaste'], capture_output=True, text=True).stdout
+  
+  return selected_text, initial_clipboard, active_app
+
+def paste_text(active_app):
+  """Paste text to the active application."""
+  subprocess.run([
+    'osascript', '-e',
+    f'tell application "System Events" to tell application process "{active_app}" to keystroke "v" using command down'
+  ]) 
