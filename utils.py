@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 import re
 import time
 import google.generativeai as genai
+from openai import OpenAI
 
 # Load environment variables
 load_dotenv()
@@ -235,7 +236,7 @@ def ask_gemini(prompt):
   
   try:
     # Use Gemini 2.5 Flash model
-    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    model = genai.GenerativeModel('gemini-2.0-flash')
     
     # Generate response
     response = model.generate_content(prompt)
@@ -296,3 +297,51 @@ def paste_text(active_app):
     'osascript', '-e',
     f'tell application "System Events" to tell application process "{active_app}" to keystroke "v" using command down'
   ]) 
+
+# ------------------- Text-to-Speech Functions -------------------
+
+def text_to_speech(text):
+  """Convert text to speech using OpenAI TTS and play it."""
+  # Get API key from environment
+  api_key = os.getenv("OPENAI_API_KEY")
+  if not api_key:
+    print("Error: OPENAI_API_KEY not found in environment")
+    return False
+  
+  if not text or not text.strip():
+    print("Error: No text to convert to speech")
+    return False
+  
+  try:
+    # Initialize OpenAI client
+    client = OpenAI(api_key=api_key)
+    
+    # Create a temporary file for the audio
+    with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as temp_audio:
+      audio_path = temp_audio.name
+    
+    # Generate speech using OpenAI TTS
+    response = client.audio.speech.create(
+      model="tts-1",
+      voice="alloy",
+      input=text[:4096]  # OpenAI TTS has a 4096 character limit
+    )
+    
+    # Write audio to temporary file
+    with open(audio_path, 'wb') as audio_file:
+      for chunk in response.iter_bytes(1024):
+        audio_file.write(chunk)
+    
+    # Play the audio using afplay (built into macOS)
+    subprocess.run(['afplay', audio_path], check=True)
+    
+    # Clean up temporary file
+    os.unlink(audio_path)
+    
+    return True
+    
+  except Exception as e:
+    print(f"Error converting text to speech: {str(e)}")
+    if os.path.exists(audio_path):
+      os.unlink(audio_path)
+    return False 
