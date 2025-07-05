@@ -24,11 +24,12 @@ def main():
     sys.exit(1)
   
   # Create prompt for fixing spelling and grammar
-  prompt = f"""Fix any spelling and grammar errors in the following text. Some notes:
-  - Don't end with a period
-  - If its only one word, keep the first letter lowercase. If its obviously a sentence, capitalize the first letter.
-  
-  Return only the corrected text without any explanation or formatting.
+  prompt = f"""Fix any spelling and grammar errors in the following text.
+Some notes:
+- Do NOT add a period to the end of the text
+- Maintain the original capitalization (unless it is obviously wrong, in which case fix it).
+
+Return only the corrected text without any explanation or formatting.
   
 <text>
 {selected_text}
