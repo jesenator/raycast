@@ -31,11 +31,11 @@ def main():
   
   # Generate filename if not provided
   if not filename:
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    datestamp = datetime.now().strftime("%m-%d-%y")
     if clipboard_data['type'] == 'text':
-      filename = f"clipboard_{timestamp}.txt"
+      filename = f"clipboard_{datestamp}.txt"
     else:
-      filename = f"clipboard_{timestamp}.png"
+      filename = f"clipboard_{datestamp}.png"
   else:
     # Auto-add extension if not present
     if clipboard_data['type'] == 'text' and not filename.endswith('.txt'):
@@ -49,6 +49,14 @@ def main():
   
   # Create full file path
   file_path = os.path.join(buffer_dir, filename)
+  
+  # Handle file conflicts by appending number
+  if os.path.exists(file_path):
+    base, ext = os.path.splitext(file_path)
+    counter = 1
+    while os.path.exists(f"{base}_{counter}{ext}"):
+      counter += 1
+    file_path = f"{base}_{counter}{ext}"
   
   try:
     if clipboard_data['type'] == 'text':
