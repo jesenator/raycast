@@ -23,11 +23,16 @@ def main():
     print("Error: No text to fix")
     sys.exit(1)
   
+  if len(selected_text) > 500:
+    print("Error: Text is too long (500 character limit)")
+    copy_to_clipboard(initial_clipboard)
+    sys.exit(1)
+  
   # Create prompt for fixing spelling and grammar
   prompt = f"""Fix any spelling and grammar errors in the following text.
 Some notes:
 - Do NOT add a period to the end of the text
-- Maintain the original capitalization (unless it is obviously wrong, in which case fix it).
+- IMPORTANT: Maintain the original capitalization of the input text (do NOT uppercase the first letter of the text if it wasn't already uppercase)
 
 Return only the corrected text without any explanation or formatting.
   
