@@ -58,15 +58,23 @@ if [ -z "$text" ]; then
   exit 1
 fi
 
-# Check if the text is a URL
-if [[ $text =~ ^(https?://|www\.) ]] || [[ $text =~ ^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)+(/.*)?$ ]]; then
+# Check if the text is a local file or folder path
+if [[ -e "$text" ]]; then
+  # If it's a file, reveal it in Finder; if it's a folder, open it
+  if [[ -f "$text" ]]; then
+    open -R "$text"
+  else
+    open "$text"
+  fi
+elif [[ $text =~ ^(https?://|www\.) ]] || [[ $text =~ ^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)+(/.*)?$ ]]; then
+  # It's a URL
   # Add https:// if the URL doesn't start with http:// or https://
   if [[ ! $text =~ ^https?:// ]]; then
     text="https://$text"
   fi
   open "$text"
 else
-  # Not a URL, do a Google search
+  # Not a URL or local path, do a Google search
   query=$(echo "$text" | perl -MURI::Escape -ne 'print uri_escape($_)')
   open "https://www.google.com/search?q=$query"
 fi 
