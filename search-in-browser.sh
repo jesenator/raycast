@@ -9,12 +9,14 @@
 # @raycast.icon 🔍
 
 # Documentation:
-# @raycast.description Open links directly or search selected text in Google. Uses clipboard if no text selected. Performs OCR on clipboard images.
+# @raycast.description Open links directly or search selected text in Google. Uses clipboard if no text selected. Performs OCR on clipboard images. Detects QR codes and opens their links.
 # @raycast.author Jesse Gilbert
-# @raycast.dependencies ["pngpaste", "tesseract"]
+# @raycast.dependencies ["pngpaste", "tesseract", "zbar"]
 
 # Save initial clipboard content
 initial_clipboard=$(pbpaste)
+
+# TODO: If I press shift when doing this then DON'T copy text from the app, just use the most recent item from the clipboard
 
 # Get the frontmost app
 active_app=$(osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true')
@@ -43,11 +45,19 @@ fi
 temp_image="./raycast_clipboard_image.png"
 
 if pngpaste "$temp_image" 2>/dev/null; then
-  # Perform OCR on the image and capture output directly
-  image_text=$(tesseract "$temp_image" stdout 2>/dev/null)
-  if [ -n "$image_text" ]; then
-    # Replace newlines with spaces and clean up extra spaces
-    text=$(echo "$image_text" | tr '\n' ' ' | tr -s ' ')
+  # First check for QR codes in the image
+  qr_result=$(zbarimg --quiet --raw "$temp_image" 2>/dev/null | head -1)
+  
+  if [ -n "$qr_result" ]; then
+    # QR code found, use its content
+    text="$qr_result"
+  else
+    # No QR code, perform OCR on the image
+    image_text=$(tesseract "$temp_image" stdout 2>/dev/null)
+    if [ -n "$image_text" ]; then
+      # Replace newlines with spaces and clean up extra spaces
+      text=$(echo "$image_text" | tr '\n' ' ' | tr -s ' ')
+    fi
   fi
   # Clean up temporary image file
   rm -f "$temp_image"
