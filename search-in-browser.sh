@@ -13,78 +13,22 @@
 # @raycast.author Jesse Gilbert
 # @raycast.dependencies ["pngpaste", "tesseract", "zbar"]
 
-# Save initial clipboard content
-initial_clipboard=$(pbpaste)
+# Get the directory of the current script to source utils.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source shared utility functions
+source "$SCRIPT_DIR/utils.sh"
 
 # TODO: If I press shift when doing this then DON'T copy text from the app, just use the most recent item from the clipboard
 
-# Get the frontmost app
-active_app=$(osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true')
+# Get text from selection first, then clipboard (including image processing)
+text=$(get_text_with_selection)
 
-# Copy selected text
-osascript <<EOF
-tell application "System Events"
-  tell application process "$active_app"
-    keystroke "c" using command down
-  end tell
-end tell
-EOF
-
-# Small delay to ensure clipboard is updated
-sleep 0.05
-
-# Get clipboard contents
-text=$(pbpaste)
-
-# If nothing was selected (clipboard didn't change), use the initial clipboard content
-if [ "$text" = "$initial_clipboard" ]; then
-  text=$initial_clipboard
-fi
-
-# Check if clipboard contains an image
-temp_image="./raycast_clipboard_image.png"
-
-if pngpaste "$temp_image" 2>/dev/null; then
-  # First check for QR codes in the image
-  qr_result=$(zbarimg --quiet --raw "$temp_image" 2>/dev/null | head -1)
-  
-  if [ -n "$qr_result" ]; then
-    # QR code found, use its content
-    text="$qr_result"
-  else
-    # No QR code, perform OCR on the image
-    image_text=$(tesseract "$temp_image" stdout 2>/dev/null)
-    if [ -n "$image_text" ]; then
-      # Replace newlines with spaces and clean up extra spaces
-      text=$(echo "$image_text" | tr '\n' ' ' | tr -s ' ')
-    fi
-  fi
-  # Clean up temporary image file
-  rm -f "$temp_image"
-fi
-
+# Check if we got any text
 if [ -z "$text" ]; then
   echo "No text selected, in clipboard, or recognized from image"
   exit 1
 fi
 
-# Check if the text is a local file or folder path
-if [[ -e "$text" ]]; then
-  # If it's a file, reveal it in Finder; if it's a folder, open it
-  if [[ -f "$text" ]]; then
-    open -R "$text"
-  else
-    open "$text"
-  fi
-elif [[ $text =~ ^(https?://|www\.) ]] || [[ $text =~ ^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)+(/.*)?$ ]]; then
-  # It's a URL
-  # Add https:// if the URL doesn't start with http:// or https://
-  if [[ ! $text =~ ^https?:// ]]; then
-    text="https://$text"
-  fi
-  open "$text"
-else
-  # Not a URL or local path, do a Google search
-  query=$(echo "$text" | perl -MURI::Escape -ne 'print uri_escape($_)')
-  open "https://www.google.com/search?q=$query"
-fi 
+# Open the content
+open_content "$text" 
