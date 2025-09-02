@@ -49,6 +49,11 @@ open_content() {
     return 1
   fi
   
+  if [ ${#text} -gt 100 ]; then
+    echo "Error: Content too long (${#text} characters). Maximum allowed is 100 characters."
+    return 1
+  fi
+  
   # Check if the text is a local file or folder path
   if [[ -e "$text" ]]; then
     # If it's a file, reveal it in Finder; if it's a folder, open it
