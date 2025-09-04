@@ -12,11 +12,13 @@
 # @raycast.description Toggle between opposite values like true/false, 0/1, on/off
 # @raycast.author Jesse Gilbert
 
-# Copy selected text
-osascript -e 'tell application "System Events" to keystroke "c" using command down'
+# Get the directory of the current script to source utils.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Get selected text from clipboard
-selected_text=$(pbpaste)
+# Source shared utility functions
+source "$SCRIPT_DIR/utils.sh"
+
+selected_text=$(get_text_with_selection)
 
 if [ -z "$selected_text" ]; then
   echo "Error: No text selected"
