@@ -23,8 +23,8 @@ def main():
     print("Error: No text to fix")
     sys.exit(1)
   
-  if len(selected_text) > 500:
-    print("Error: Text is too long (500 character limit)")
+  if len(selected_text) > 600:
+    print("Error: Text is too long (600 character limit)")
     copy_to_clipboard(initial_clipboard)
     sys.exit(1)
   
