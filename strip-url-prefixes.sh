@@ -36,6 +36,9 @@ cleaned_text=$(echo "$cleaned_text" | sed 's|^http://||')
 # Remove www. prefix
 cleaned_text=$(echo "$cleaned_text" | sed 's|^www\.||')
 
+# Remove trailing slashes
+cleaned_text=$(echo "$cleaned_text" | sed 's|/*$||')
+
 # Copy cleaned text to clipboard
 echo -n "$cleaned_text" | pbcopy
 
