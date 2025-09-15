@@ -25,11 +25,11 @@ def is_notion_active():
 
 def send_shortcut_with_applescript():
   # key code 18 using {control down, shift down}
+  #  used to have a delay 0.1 but it seems to work fine without it
   applescript = '''
   tell application "System Events"
-    repeat 5 times
+    repeat 6 times
       key code 32 using {command down, shift down}
-      delay 0.1
     end repeat
   end tell
   '''
