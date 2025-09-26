@@ -15,9 +15,14 @@
 # @raycast.author Fahim Faisal
 # @raycast.authorURL https://github.com/i3p9
 
-#Dependency: pngpaste and imagemagick (Install via brew install pngpaste imagemagick)
+# Dependency: pngpaste and imagemagick (Install via brew install pngpaste imagemagick)
 # pngpaste required to grab image from clipboard
 # imagemagick required to convert heic image to jpg (imgur doesnt accept heic)
+
+# Load environment variables
+if [ -f .env ]; then
+  source .env
+fi
 
 #pngpaste check
 t=$(which pngpaste)
@@ -34,7 +39,7 @@ if [ -z "$m" ]; then
 fi
 
 #Client ID, use your own client ID. Get it from https://api.imgur.com/oauth2/addclient (Select anonymous useage as auth type)
-client_id="c5b132705d9d468" # this one is mine (Jesse's)
+client_id="${IMGUR_CLIENT_ID}"
 
 if [ "$client_id" == "" ]; then
     echo "No API Key found. Configure your own key before running"
@@ -86,7 +91,7 @@ fi
 
 #Error handling is a solid "ehhh" (for now)
 if [ "$jobdone" -ne 1 ]; then
-    echo "Upload Successful, link copied to clipboard"
+    echo "Upload Successful, link copied to clipboard: $url"
 else
     echo "No image/image file found in clipboard, try again."
 fi
