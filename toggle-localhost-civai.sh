@@ -23,19 +23,33 @@ fi
 # Strip whitespace
 url=$(echo "$url" | xargs)
 
-# Toggle the URL
-if [[ "$url" == *"localhost:8080"* ]]; then
-  # Replace localhost:8080 with civai.org (ensure https for civai.org)
-  toggled_url=$(echo "$url" | sed 's|http://localhost:8080|https://civai.org|g' | sed 's|https://localhost:8080|https://civai.org|g' | sed 's|localhost:8080|civai.org|g')
-  echo "$toggled_url" | pbcopy
-  echo "Toggled: localhost:8080 → civai.org"
-elif [[ "$url" == *"civai.org"* ]]; then
-  # Replace civai.org with localhost:8080 (ensure http for localhost)
-  toggled_url=$(echo "$url" | sed 's|https://civai.org|http://localhost:8080|g' | sed 's|http://civai.org|http://localhost:8080|g' | sed 's|civai.org|localhost:8080|g')
-  echo "$toggled_url" | pbcopy
-  echo "Toggled: civai.org → localhost:8080"
-else
-  echo "Error: URL does not contain localhost:8080 or civai.org"
+pairs=(
+  "localhost:8000;research.civai.org"
+  "localhost:8080;civai.org"
+)
+
+toggled=0
+
+for pair in "${pairs[@]}"; do
+  IFS=';' read -r local_alias remote_alias <<< "$pair"
+  if [[ "$url" == *"$local_alias"* ]]; then
+    toggled_url=$(echo "$url" | sed "s|http://$local_alias|https://$remote_alias|g" | sed "s|https://$local_alias|https://$remote_alias|g" | sed "s|$local_alias|$remote_alias|g")
+    echo "$toggled_url" | pbcopy
+    echo "Toggled: $local_alias → $remote_alias"
+    toggled=1
+    break
+  fi
+  if [[ "$url" == *"$remote_alias"* ]]; then
+    toggled_url=$(echo "$url" | sed "s|https://$remote_alias|http://$local_alias|g" | sed "s|http://$remote_alias|http://$local_alias|g" | sed "s|$remote_alias|$local_alias|g")
+    echo "$toggled_url" | pbcopy
+    echo "Toggled: $remote_alias → $local_alias"
+    toggled=1
+    break
+  fi
+done
+
+if [ "$toggled" -eq 0 ]; then
+  echo "Error: URL does not match any aliases"
   echo "Current clipboard: $url"
   exit 1
 fi
