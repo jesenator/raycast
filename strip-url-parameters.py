@@ -15,7 +15,7 @@
 import subprocess
 import sys
 import re
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 def get_current_url():
   """Get current URL from Arc browser or fallback to other browsers."""
@@ -38,10 +38,25 @@ def get_current_url():
   return None, None
 
 def strip_url_parameters(url):
-  """Strip query parameters from URL."""
+  """Strip query parameters from URL, but keep essential ones for certain sites."""
   parsed = urlparse(url)
-  # Keep everything except query parameters
-  clean_parsed = parsed._replace(query='', fragment='')
+  
+  essential_params = {}
+  if 'youtube.com' in parsed.netloc or 'youtu.be' in parsed.netloc:
+    essential_params = {'v'}
+  
+  if not parsed.query:
+    clean_parsed = parsed._replace(fragment='')
+    return urlunparse(clean_parsed)
+  
+  if essential_params:
+    params = parse_qs(parsed.query, keep_blank_values=True)
+    filtered_params = {k: v for k, v in params.items() if k in essential_params}
+    new_query = urlencode(filtered_params, doseq=True) if filtered_params else ''
+    clean_parsed = parsed._replace(query=new_query, fragment='')
+  else:
+    clean_parsed = parsed._replace(query='', fragment='')
+  
   return urlunparse(clean_parsed)
 
 def navigate_current_tab(url, browser_name):
