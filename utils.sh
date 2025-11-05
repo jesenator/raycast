@@ -146,3 +146,54 @@ get_clipboard_text() {
   return 1
 }
 
+# Open content in incognito mode
+open_content_incognito() {
+  local text="$1"
+  
+  if [ -z "$text" ]; then
+    echo "No text to process"
+    return 1
+  fi
+  
+  if [ ${#text} -gt 200 ]; then
+    echo "Error: Content too long (${#text} characters). Maximum allowed is 200 characters."
+    return 1
+  fi
+  
+  local url=""
+  
+  if is_url "$text"; then
+    # Add https:// if the URL doesn't start with http:// or https://
+    if [[ ! $text =~ ^https?:// ]]; then
+      url="https://$text"
+    else
+      url="$text"
+    fi
+  else
+    # Not a URL, do a Google search
+    local query=$(echo "$text" | perl -MURI::Escape -ne 'print uri_escape($_)')
+    url="https://www.google.com/search?q=$query"
+  fi
+  
+  # Copy URL to clipboard temporarily
+  local original_clipboard=$(pbpaste)
+  echo -n "$url" | pbcopy
+  
+  # Activate Arc and open new incognito tab with Cmd+Shift+N, then paste and enter
+  osascript <<EOF
+tell application "Arc" to activate
+delay 0.2
+tell application "System Events"
+  keystroke "n" using {command down, shift down}
+  keystroke "v" using command down
+  delay 0.7
+  keystroke return
+end tell
+EOF
+  
+  # Restore original clipboard
+  echo -n "$original_clipboard" | pbcopy
+  
+  echo "Opened in incognito: $url"
+}
+
