@@ -30,8 +30,9 @@ def main():
   
   if success and task_url:
     copy_to_clipboard(task_url)
-  
-  if not success:
+  else:
+    # Copy task name to clipboard on failure
+    copy_to_clipboard(task)
     sys.exit(1)
 
 if __name__ == "__main__":
