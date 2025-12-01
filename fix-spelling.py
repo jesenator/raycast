@@ -13,7 +13,7 @@
 # @raycast.author Jesse Gilbert
 
 import sys
-from utils import get_selected_text_or_all, ask_gemini, copy_to_clipboard, paste_text
+from utils import get_selected_text_or_all, ask, copy_to_clipboard, paste_text
 
 def main():
   # Get selected text (or all text if nothing selected)
@@ -41,8 +41,7 @@ Return only the corrected text without any explanation or formatting.
 </text>
 """
   
-  # Fix the text with Gemini
-  corrected_text = ask_gemini(prompt)
+  corrected_text = ask(prompt)
   print(f"corrected_text: {corrected_text}")
   
   if not corrected_text:

@@ -11,7 +11,6 @@ import tempfile
 from dotenv import load_dotenv
 import re
 import time
-import google.generativeai as genai
 from openai import OpenAI
 
 # Load environment variables
@@ -231,29 +230,24 @@ def parse_date(date_str):
     print(f"Error parsing date '{date_str}': {str(e)}")
     return None 
 
-# ------------------- Gemini Functions -------------------
+# ------------------- LLM Functions -------------------
 
-def ask_gemini(prompt):
-  """Send a prompt to Gemini 2.5 Flash and get response."""
-  # Get API key from environment
-  api_key = os.getenv("GEMINI_API_KEY")
+def ask(prompt, model="anthropic/claude-haiku-4.5"):
+  """Send a prompt to OpenRouter and get response."""
+  api_key = os.getenv("OPENROUTER_API_KEY")
   if not api_key:
-    print("Error: GEMINI_API_KEY not found in environment")
+    print("Error: OPENROUTER_API_KEY not found in environment")
     return None
   
-  # Configure Gemini
-  genai.configure(api_key=api_key)
-  
   try:
-    # Use Gemini 2.5 Flash model
-    model = genai.GenerativeModel('gemini-2.0-flash')
-    
-    # Generate response
-    response = model.generate_content(prompt)
-    return response.text.strip()
-    
+    client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=api_key)
+    response = client.chat.completions.create(
+      model=model,
+      messages=[{"role": "user", "content": prompt}],
+    )
+    return response.choices[0].message.content.strip()
   except Exception as e:
-    print(f"Error calling Gemini API: {str(e)}")
+    print(f"Error calling OpenRouter API: {str(e)}")
     return None
 
 def get_selected_text_or_all():
