@@ -168,7 +168,7 @@ def parse_date(date_str):
       return dt.astimezone().isoformat(timespec='milliseconds')
 
     # Handle special keyword dates
-    if s == 'now':
+    if s == 'now' or s == 'n':
       minute = (now.minute + 14) // 15 * 15
       dt = now.replace(minute=minute if minute < 60 else 0, second=0, microsecond=0)
       if minute == 60:
