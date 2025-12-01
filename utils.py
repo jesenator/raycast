@@ -157,6 +157,16 @@ def parse_date(date_str):
     s = date_str.strip().lower()
     now = datetime.now()
 
+    # Handle dot notation: "." = nearest half hour, ".1" = +1 hour, ".2" = +2 hours, etc.
+    if s.startswith('.'):
+      minute = (now.minute + 15) // 30 * 30
+      dt = now.replace(minute=minute % 60, second=0, microsecond=0)
+      if minute >= 60:
+        dt += timedelta(hours=1)
+      if s[1:]:
+        dt += timedelta(hours=int(s[1:]))
+      return dt.astimezone().isoformat(timespec='milliseconds')
+
     # Handle special keyword dates
     if s == 'now':
       minute = (now.minute + 14) // 15 * 15
