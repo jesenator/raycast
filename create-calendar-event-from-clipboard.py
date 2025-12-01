@@ -14,9 +14,6 @@
 # @raycast.author Jesse Gilbert
 
 
-# TODO
-# - add a loading indicator (not sure if this is possible)
-
 '''
 ### setup ###
 files needed
@@ -25,7 +22,7 @@ files needed
 - requirements.txt
 
 Make a new .env file
-- go to aistudio.google.com to get and set the GEMINI_API_KEY in the .env file
+- go to openrouter.ai to get and set the OPENROUTER_API_KEY in the .env file
 - optional: if you want the event link to open in Notion calendar instead of Google calendar, you'll have to do some annoying things that I'll need to explain to get and set the USER_EMAIL and UNIQUE_ID in the .env file
 
 set up python environment and replace the python path at the top of this file
@@ -46,8 +43,8 @@ import base64
 import subprocess
 import datetime
 import re
-import http.client
 from dotenv import load_dotenv
+from openai import OpenAI
 from utils import get_clipboard_content
 
 # Add Google API imports
@@ -61,17 +58,15 @@ from googleapiclient.discovery import build
 load_dotenv()
 
 # Get API key from environment
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-  print("Error: GEMINI_API_KEY not found in .env file")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+if not OPENROUTER_API_KEY:
+  print("Error: OPENROUTER_API_KEY not found in .env file")
   sys.exit(1)
 
 # Path to store credentials
 CONFIG_DIR = os.path.expanduser("./")
 CREDENTIALS_PATH = os.path.join(CONFIG_DIR, "Google Calendar Client Secret.json")
 TOKEN_PATH = os.path.join(CONFIG_DIR, "token.json")
-# Use gemini-2.0-flash for both text and image inputs
-GEMINI_MODEL = "gemini-2.0-flash"
 # Google API scope
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
 # Default timezone
@@ -79,100 +74,52 @@ TIMEZONE = "America/Los_Angeles"
 
 
 # ------------------ Helper Functions ------------------
-def create_gemini_request_body(content):
-  """Create the appropriate request body based on content type."""
+def query_llm(content):
+  """Query OpenRouter API with content from clipboard."""
   now = datetime.datetime.now()
-  current_date = now.strftime("%Y-%m-%d")
-  day_of_week = now.strftime("%A")
-
-  prompt = f"""
-Extract ONLY ONE event detail from the following text/image and return a JSON object with these fields:
+  prompt = f"""Extract ONLY ONE event detail from the following text/image and return a JSON object with these fields:
 - title: The event title
 - start_time: The start time in ISO format (YYYY-MM-DDTHH:MM:SS)
 - end_time: The end time in ISO format (YYYY-MM-DDTHH:MM:SS)
 - location: The location (if any)
-- description: Any additional details
-
+- description: Any additional details (keep it brief, add it only if neccessary)
 Notes: 
 - If multiple events are detected, only extract the first/most prominent one.
 - Use empty string instead of null for any missing values.
 - Only return valid JSON, no explanatory text before or after.
-- If no start/end time is explicitly stated in the text/image, make a best guess based on the type of event.
-- If there is no text/image, or the text/image given obviously doesn't actually represent a calendar event and was likley a mistake, return a JSON object with a single field: no_event: true
-  - Examples of non-calendar events:
-      - "do first 500 website people"
-
-- Feel free to take liberties in the naming and details of the event to make it useful.
-- Today's date: {current_date} ({day_of_week})
+- If no start/end time is explicitly stated, make a best guess based on the type of event.
+- If the content obviously doesn't represent a calendar event, return: {{"no_event": true}}
+- Feel free to take liberties in naming and details to make it useful.
+- Today's date: {now.strftime("%Y-%m-%d")} ({now.strftime("%A")})
 """
 
+  client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
   
   if content['type'] == 'text':
-    return {
-      "contents": [{
-        "parts": [{
-          "text": f"{prompt}\n\nText: {content['content']}"
-        }]
-      }]
-    }
-  else:  # image
+    messages = [{"role": "user", "content": f"{prompt}\n\nText: {content['content']}"}]
+  else:
     image_b64 = base64.b64encode(content['content']).decode('utf-8')
-    return {
-      "contents": [{
-        "parts": [
-          {"text": prompt},
-          {
-            "inline_data": {
-              "mime_type": "image/png",
-              "data": image_b64
-            }
-          }
-        ]
-      }]
-    }
-
-def query_gemini(content):
-  """Query Gemini API with content from clipboard."""
-  headers = {"Content-Type": "application/json"}
-  request_body = create_gemini_request_body(content)
+    messages = [{"role": "user", "content": [
+      {"type": "text", "text": prompt},
+      {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}}
+    ]}]
   
-  # Make API request
-  conn = http.client.HTTPSConnection("generativelanguage.googleapis.com")
-  endpoint = f"/v1/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
+  response = client.chat.completions.create(model="anthropic/claude-haiku-4.5", messages=messages, temperature=0)
+  response_text = response.choices[0].message.content
   
-  try:
-    conn.request("POST", endpoint, json.dumps(request_body), headers)
-    response = conn.getresponse()
-    result = json.loads(response.read().decode("utf-8"))
-    
-    # Extract the text response from Gemini
-    if "candidates" in result and len(result["candidates"]) > 0:
-      response_text = result["candidates"][0]["content"]["parts"][0]["text"]
-      
-      # Find JSON in response if wrapped in backticks
-      json_match = re.search(r'```json\s*(.*?)\s*```', response_text, re.DOTALL)
-      if json_match:
-        response_text = json_match.group(1)
-      
-      # Replace any JSON null with empty strings before parsing
-      response_text = response_text.replace(': null', ': ""')
-      
-      # Parse the JSON response
-      event_data = json.loads(response_text)
-      
-      # Check if Gemini found no event
-      if 'no_event' in event_data and event_data['no_event']:
-        raise ValueError("No calendar event found in the clipboard content")
-      
-      print("\nExtracted event data:")
-      print(json.dumps(event_data, indent=2))
-      return event_data
-    else:
-      raise ValueError("Failed to get a proper response from Gemini API")
-  except json.JSONDecodeError:
-    raise ValueError("Failed to parse JSON from Gemini response")
-  except Exception as e:
-    raise ValueError(f"Error querying Gemini API: {e}")
+  # Find JSON in response if wrapped in backticks
+  json_match = re.search(r'```json\s*(.*?)\s*```', response_text, re.DOTALL)
+  if json_match:
+    response_text = json_match.group(1)
+  
+  event_data = json.loads(response_text.replace(': null', ': ""'))
+  
+  if event_data.get('no_event'):
+    raise ValueError("No calendar event found in the clipboard content")
+  
+  print("\nExtracted event data:")
+  print(json.dumps(event_data, indent=2))
+  return event_data
 
 def get_google_credentials():
   """Get and refresh Google API credentials."""
@@ -259,11 +206,11 @@ def get_notion_calendar_url(event_id: str) -> str:
 # ------------------ Main Function ------------------
 def main():
   try:
-    print("Reading clipboard content...")
     clipboard_content = get_clipboard_content()
+    if not clipboard_content:
+      raise ValueError("Clipboard is empty")
     
-    print(f"Analyzing {'image' if clipboard_content['type'] == 'image' else 'text'} with Gemini API...")
-    event_data = query_gemini(clipboard_content)
+    event_data = query_llm(clipboard_content)
     
     # Print a simplified summary of the event
     print("\nEvent Summary:")
