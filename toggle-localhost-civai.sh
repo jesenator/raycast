@@ -26,6 +26,7 @@ url=$(echo "$url" | xargs)
 pairs=(
   "localhost:8000;research.civai.org"
   "localhost:8080;civai.org"
+  "localhost:12940;civai.org"
 )
 
 toggled=0
