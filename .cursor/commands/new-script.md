@@ -8,3 +8,11 @@ Notes for adding a new Raycast custom script
 - Keep it really simple!!!
 
 The particulars of the script you are being asked to write will be provided by the user.
+
+## Reference
+
+### Raycast Script Modes (`@raycast.mode`)
+- `silent` - Last line shown in small HUD toast at the bottom of the screen
+- `compact` - Last line shown in compact Raycast window line toast
+- `fullOutput` - Entire output in scrollable terminal-like view
+- `inline` - First line shown in command item (requires `@raycast.refreshTime`)
