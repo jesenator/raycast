@@ -34,6 +34,10 @@ def main():
   keyboard.type('\n')
   time.sleep(0.05)
   keyboard.type('\n')
+  time.sleep(0.05)
+  keyboard.type('\n')
+  time.sleep(0.05)
+  keyboard.type('\n')
   
   for _ in range(4):
     with keyboard.pressed(Key.shift):
