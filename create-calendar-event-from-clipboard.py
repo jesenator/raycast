@@ -91,6 +91,7 @@ Notes:
 - If the content obviously doesn't represent a calendar event, return: {{"no_event": true}}
 - Feel free to take liberties in naming and details to make it useful.
 - Today's date: {now.strftime("%Y-%m-%d")} ({now.strftime("%A")})
+- Your timezone: {TIMEZONE}. Return the time in this timezone.
 """
 
   client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
