@@ -53,6 +53,9 @@ def main():
       keyboard.type(char)
     time.sleep(0.02)
   
+  keyboard.press(Key.enter)
+  keyboard.release(Key.enter)
+  
   print("📦 Typed archive block")
 
 if __name__ == "__main__":
