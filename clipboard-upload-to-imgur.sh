@@ -56,7 +56,7 @@ file_img=$(osascript -e "POSIX path of (the clipboard as «class furl»)")
 ext="${file_img##*.}"
 
 case "$ext" in
-    png|jpg|jpeg|gif) #If image/video file is found in clipboard
+    png|jpg|jpeg|gif|webp) #If image/video file is found in clipboard
         output=$(upload "@$file_img") 2>/dev/null
         ;;
     heic|HEIC) #HEIC conversion to JPG as Imgur doesnt suppot heic natively
