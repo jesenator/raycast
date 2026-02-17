@@ -30,27 +30,27 @@ parse_to_seconds() {
   input=$(echo "$input" | tr '[:upper:]' '[:lower:]')
   
   # Extract hours (h, hr, hrs, hour, hours)
-  if [[ "$input" =~ ([0-9]+)[[:space:]]*(hours?|hrs?|h) ]]; then
-    total_seconds=$((total_seconds + ${BASH_REMATCH[1]} * 3600))
+  if [[ "$input" =~ ([0-9]*\.?[0-9]+)[[:space:]]*(hours?|hrs?|h) ]]; then
+    total_seconds=$(awk "BEGIN {printf \"%d\", $total_seconds + ${BASH_REMATCH[1]} * 3600}")
     input="${input//${BASH_REMATCH[0]}/}"
   fi
   
   # Extract minutes (m, min, mins, minute, minutes)
-  if [[ "$input" =~ ([0-9]+)[[:space:]]*(minutes?|mins?|m) ]]; then
-    total_seconds=$((total_seconds + ${BASH_REMATCH[1]} * 60))
+  if [[ "$input" =~ ([0-9]*\.?[0-9]+)[[:space:]]*(minutes?|mins?|m) ]]; then
+    total_seconds=$(awk "BEGIN {printf \"%d\", $total_seconds + ${BASH_REMATCH[1]} * 60}")
     input="${input//${BASH_REMATCH[0]}/}"
   fi
   
   # Extract seconds (s, sec, secs, second, seconds)
-  if [[ "$input" =~ ([0-9]+)[[:space:]]*(seconds?|secs?|s) ]]; then
-    total_seconds=$((total_seconds + ${BASH_REMATCH[1]}))
+  if [[ "$input" =~ ([0-9]*\.?[0-9]+)[[:space:]]*(seconds?|secs?|s) ]]; then
+    total_seconds=$(awk "BEGIN {printf \"%d\", $total_seconds + ${BASH_REMATCH[1]}}")
     input="${input//${BASH_REMATCH[0]}/}"
   fi
   
-  # If just a number remains (after stripping non-digits), assume minutes
-  input=$(echo "$input" | tr -cd '0-9')
+  # If just a number remains, assume minutes
+  input=$(echo "$input" | tr -cd '0-9.')
   if [[ -n "$input" ]]; then
-    total_seconds=$((total_seconds + input * 60))
+    total_seconds=$(awk "BEGIN {printf \"%d\", $total_seconds + $input * 60}")
   fi
   
   echo "$total_seconds"
