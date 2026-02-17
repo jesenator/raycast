@@ -49,8 +49,8 @@ open_content() {
     return 1
   fi
   
-  if [ ${#text} -gt 200 ]; then
-    echo "Error: Content too long (${#text} characters). Maximum allowed is 200 characters."
+  if [ ${#text} -gt 400 ]; then
+    echo "Error: Content too long (${#text} characters). Maximum allowed is 400 characters (to prevent accidental data exfiltration)"
     return 1
   fi
   
