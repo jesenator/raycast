@@ -199,7 +199,6 @@ def parse_date(date_str):
         dt += timedelta(days=1)
       return dt.astimezone().isoformat(timespec='milliseconds')
 
-    # Handle weekday names
     weekdays = {
       'monday': 0, 'mon': 0,
       'tuesday': 1, 'tue': 1, 'tues': 1,
@@ -209,8 +208,26 @@ def parse_date(date_str):
       'saturday': 5, 'sat': 5,
       'sunday': 6, 'sun': 6
     }
+
+    # Count "next"/"n" prefixes and extract the remaining day name
+    # e.g. "next saturday" -> 1 extra week, "n n wed" -> 2 extra weeks
+    parts = s.split()
+    next_count = 0
+    for p in parts:
+      if p in ('next', 'n'):
+        next_count += 1
+      else:
+        break
+    remainder = ' '.join(parts[next_count:])
+
+    if next_count > 0 and remainder in weekdays:
+      days_ahead = (weekdays[remainder] - now.weekday()) % 7
+      days_ahead += 7 * next_count
+      return (now + timedelta(days=days_ahead)).strftime('%Y-%m-%d')
+
+    # Handle weekday names (no "next" prefix) -- resolves to today if it's that day
     if s in weekdays:
-      days_ahead = (weekdays[s] - now.weekday()) % 7 or 7
+      days_ahead = (weekdays[s] - now.weekday()) % 7
       return (now + timedelta(days=days_ahead)).strftime('%Y-%m-%d')
 
     # Handle standard date formats
