@@ -166,6 +166,28 @@ def parse_date(date_str):
         dt += timedelta(hours=int(s[1:]))
       return dt.astimezone().isoformat(timespec='milliseconds')
 
+    # Handle date + time combo (e.g., "thu 8pm", "9 9am", "tomorrow 3:30pm")
+    last_space = s.rfind(' ')
+    if last_space > 0:
+      date_part = s[:last_space].strip()
+      time_part = s[last_space+1:].strip()
+      tm = re.match(r'^(\d{1,2})(?::(\d{2}))?\s*(am|pm|a|p)$', time_part)
+      ampm = tm.group(3) if tm else None
+      if not tm:
+        tm = re.match(r'^(\d{1,2}):(\d{2})$', time_part)
+      if tm:
+        hour = int(tm.group(1))
+        minute = int(tm.group(2) or 0)
+        if ampm and ampm.startswith('p') and hour < 12:
+          hour += 12
+        if ampm and ampm.startswith('a') and hour == 12:
+          hour = 0
+        base_date = parse_date(date_part)
+        if base_date and 'T' not in base_date:
+          dt = datetime.strptime(base_date, '%Y-%m-%d')
+          dt = dt.replace(hour=hour, minute=minute, second=0, microsecond=0)
+          return dt.astimezone().isoformat(timespec='milliseconds')
+
     # Handle special keyword dates
     if s == 'now' or s == 'n':
       minute = (now.minute + 14) // 15 * 15
