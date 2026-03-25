@@ -175,24 +175,15 @@ open_content_incognito() {
     url="https://www.google.com/search?q=$query"
   fi
   
-  # Copy URL to clipboard temporarily
-  local original_clipboard=$(pbpaste)
-  echo -n "$url" | pbcopy
-  
-  # Activate Arc and open new incognito tab with Cmd+Shift+N, then paste and enter
   osascript <<EOF
-tell application "Arc" to activate
-delay 0.2
-tell application "System Events"
-  keystroke "n" using {command down, shift down}
-  keystroke "v" using command down
-  delay 0.7
-  keystroke return
+tell application "Arc"
+  make new window with properties {incognito:true}
+  tell front window
+    make new tab with properties {URL:"$url"}
+  end tell
+  activate
 end tell
 EOF
-  
-  # Restore original clipboard
-  echo -n "$original_clipboard" | pbcopy
   
   echo "Opened in incognito: $url"
 }
