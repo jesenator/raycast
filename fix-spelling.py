@@ -65,7 +65,7 @@ Return only the corrected text without any explanation or formatting.
 {selected_text}
 </text>
 """
-    corrected_text = ask(prompt)
+    corrected_text = ask(prompt, model="meta-llama/llama-3-8b-instruct")
   print(f"corrected_text: {corrected_text}")
   
   if not corrected_text:
