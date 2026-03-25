@@ -13,10 +13,30 @@
 # @raycast.author Jesse Gilbert
 
 import sys
+from spellchecker import SpellChecker
 from utils import get_selected_text_or_all, ask, copy_to_clipboard, paste_text
 
+spell = SpellChecker()
+
+def fix_single_word(word):
+  stripped = word.strip()
+  if not stripped:
+    return None
+  was_upper = stripped[0].isupper()
+  lower = stripped.lower()
+  if lower in spell:
+    return None
+  correction = spell.correction(lower)
+  if not correction or correction == lower:
+    return None
+  if was_upper:
+    correction = correction[0].upper() + correction[1:]
+  return correction
+
+def is_single_word(text):
+  return len(text.split()) == 1
+
 def main():
-  # Get selected text (or all text if nothing selected)
   selected_text, initial_clipboard, active_app = get_selected_text_or_all()
 
   if not selected_text:
@@ -27,9 +47,14 @@ def main():
     print("Error: Text is too long (600 character limit)")
     copy_to_clipboard(initial_clipboard)
     sys.exit(1)
-  
-  # Create prompt for fixing spelling and grammar
-  prompt = f"""Fix any spelling and grammar errors in the following text.
+
+  corrected_text = None
+
+  if is_single_word(selected_text):
+    corrected_text = fix_single_word(selected_text)
+
+  if not corrected_text:
+    prompt = f"""Fix any spelling and grammar errors in the following text.
 Some notes:
 - Do NOT add a period to the end of the text
 - IMPORTANT: Maintain the original capitalization of the input text (do NOT uppercase the first letter of the text if it wasn't already uppercase)
@@ -40,8 +65,7 @@ Return only the corrected text without any explanation or formatting.
 {selected_text}
 </text>
 """
-  
-  corrected_text = ask(prompt)
+    corrected_text = ask(prompt)
   print(f"corrected_text: {corrected_text}")
   
   if not corrected_text:
