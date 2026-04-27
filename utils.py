@@ -1,9 +1,6 @@
 #!/Users/jesenator/Documents/raycast/.venv/bin/python
 
 import os
-import sys
-import json
-import datetime
 from datetime import datetime, timedelta
 import requests
 import subprocess
@@ -251,6 +248,26 @@ def parse_date(date_str):
     if s in weekdays:
       days_ahead = (weekdays[s] - now.weekday()) % 7
       return (now + timedelta(days=days_ahead)).strftime('%Y-%m-%d')
+
+    # Handle month-name date formats: June 15, Jun 15th, 15 June, June 15 2027
+    ordinal_s = re.sub(r'\b(\d{1,2})(st|nd|rd|th)\b', r'\1', s)
+    month_formats = (
+      '%B %d %Y', '%b %d %Y',
+      '%B %d, %Y', '%b %d, %Y',
+      '%B %d', '%b %d',
+      '%d %B %Y', '%d %b %Y',
+      '%d %B', '%d %b'
+    )
+    for fmt in month_formats:
+      try:
+        dt = datetime.strptime(ordinal_s, fmt)
+        if '%Y' not in fmt:
+          dt = dt.replace(year=now.year)
+          if dt.date() < now.date():
+            dt = dt.replace(year=now.year + 1)
+        return dt.strftime('%Y-%m-%d')
+      except ValueError:
+        pass
 
     # Handle standard date formats
     for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%m/%d', '%m-%d'):
