@@ -4,20 +4,64 @@
 # @raycast.schemaVersion 1
 # @raycast.title Set Timer
 # @raycast.mode silent
-# @raycast.argument1 { "name": "duration", "placeholder": "e.g. 5m, 30s, 1h", "type": "text" }
+# @raycast.argument1 { "name": "duration", "placeholder": "e.g. 5m, 30s, 1h", "type": "text", "optional": true }
 
 # Optional parameters:
 # @raycast.icon ⏱️
 
 # Documentation:
-# @raycast.description Set a native Apple timer (requires "Set Timer" shortcut)
+# @raycast.description Set a native Apple timer, or leave empty to stop ringing/running timers (requires "Set Timer" shortcut)
 # @raycast.author Jesse Gilbert
 
 duration="$1"
 
+# No duration → stop any ringing/running timers
 if [ -z "$duration" ]; then
-  echo "Error: No duration provided"
-  exit 1
+  # The ring is played by the notification subsystem, not by a kill-able process.
+  # The only reliable way to silence it is UI scripting (requires Accessibility
+  # permission for whatever app runs this — Raycast, Terminal, etc).
+
+  # The ringing timer surfaces in NotificationCenter as an AXGroup whose
+  # accessibility actions include one with description "Stop". Performing
+  # that action silences and dismisses the timer.
+  result=$(osascript 2>/dev/null <<'EOF'
+with timeout of 5 seconds
+  tell application "System Events"
+    repeat with pname in {"NotificationCenter", "Notification Center"}
+      try
+        if exists process (pname as string) then
+          tell process (pname as string)
+            try
+              set elems to entire contents of window 1
+              repeat with e in elems
+                try
+                  repeat with a in (actions of e)
+                    try
+                      if (description of a) is "Stop" then
+                        perform a
+                        return "stopped"
+                      end if
+                    end try
+                  end repeat
+                end try
+              end repeat
+            end try
+          end tell
+        end if
+      end try
+    end repeat
+  end tell
+end timeout
+return "none"
+EOF
+)
+
+  if [ "$result" = "stopped" ]; then
+    echo "Timers stopped"
+  else
+    echo "No ringing/active timer found (or Accessibility permission missing for this app)"
+  fi
+  exit 0
 fi
 
 # Parse duration to seconds
