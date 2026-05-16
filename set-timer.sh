@@ -4,19 +4,20 @@
 # @raycast.schemaVersion 1
 # @raycast.title Set Timer
 # @raycast.mode silent
-# @raycast.argument1 { "name": "duration", "placeholder": "e.g. 5m, 30s, 1h", "type": "text", "optional": true }
+# @raycast.argument1 { "name": "duration", "placeholder": "e.g. 5m, 30s, 1h, or 'stop'", "type": "text" }
 
 # Optional parameters:
 # @raycast.icon ⏱️
 
 # Documentation:
-# @raycast.description Set a native Apple timer, or leave empty to stop ringing/running timers (requires "Set Timer" shortcut)
+# @raycast.description Set a native Apple timer, or type "stop" to silence ringing/running timers (requires "Set Timer" shortcut)
 # @raycast.author Jesse Gilbert
 
 duration="$1"
 
-# No duration → stop any ringing/running timers
-if [ -z "$duration" ]; then
+# "stop" (or empty) → stop any ringing/running timers
+stop_word=$(echo "$duration" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+if [ -z "$stop_word" ] || [ "$stop_word" = "stop" ] || [ "$stop_word" = "s" ] || [ "$stop_word" = "off" ]; then
   # The ring is played by the notification subsystem, not by a kill-able process.
   # The only reliable way to silence it is UI scripting (requires Accessibility
   # permission for whatever app runs this — Raycast, Terminal, etc).
@@ -24,7 +25,7 @@ if [ -z "$duration" ]; then
   # The ringing timer surfaces in NotificationCenter as an AXGroup whose
   # accessibility actions include one with description "Stop". Performing
   # that action silences and dismisses the timer.
-  result=$(osascript 2>/dev/null <<'EOF'
+  result=$(osascript 2>&1 <<'EOF'
 with timeout of 5 seconds
   tell application "System Events"
     repeat with pname in {"NotificationCenter", "Notification Center"}
@@ -58,8 +59,12 @@ EOF
 
   if [ "$result" = "stopped" ]; then
     echo "Timers stopped"
+  elif [ "$result" = "none" ]; then
+    echo "No ringing/active timer found"
+  elif echo "$result" | grep -qE -- "-1719|-25211|-10827|not allowed|not authorized|assistive access"; then
+    echo "Permission missing: grant Accessibility + Automation (System Events) to the app running this script (e.g. Raycast Beta) in System Settings → Privacy & Security"
   else
-    echo "No ringing/active timer found (or Accessibility permission missing for this app)"
+    echo "Unexpected error: $result"
   fi
   exit 0
 fi
