@@ -2,31 +2,28 @@
 
 # Shared utility functions for Raycast scripts
 
+# Ensure Homebrew binaries (pngpaste, zbarimg, tesseract) are on PATH when run by Raycast
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
 # Process image from clipboard - check for QR codes and perform OCR
 process_clipboard_image() {
-  local temp_image="./raycast_clipboard_image.png"
+  local temp_image="$(mktemp -t raycast_clipboard_image).png"
   local result_text=""
-  
+
   if pngpaste "$temp_image" 2>/dev/null; then
-    # First check for QR codes in the image
     local qr_result=$(zbarimg --quiet --raw "$temp_image" 2>/dev/null | head -1)
-    
+
     if [ -n "$qr_result" ]; then
-      # QR code found, use its content
       result_text="$qr_result"
     else
-      # No QR code, perform OCR on the image
       local image_text=$(tesseract "$temp_image" stdout 2>/dev/null)
       if [ -n "$image_text" ]; then
-        # Replace newlines with spaces and clean up extra spaces
         result_text=$(echo "$image_text" | tr '\n' ' ' | tr -s ' ')
       fi
     fi
-    
-    # Clean up temporary image file
-    rm -f "$temp_image"
   fi
-  
+
+  rm -f "$temp_image"
   echo "$result_text"
 }
 
