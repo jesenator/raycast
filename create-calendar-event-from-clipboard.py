@@ -54,8 +54,12 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
 # ------------------ Configuration ------------------
-# Load environment variables from .env file
-load_dotenv()
+# Anchor all paths to this script's directory so it works regardless of the
+# working directory Raycast (or anything else) invokes it from.
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Load environment variables from the .env next to this script
+load_dotenv(os.path.join(SCRIPT_DIR, ".env"))
 
 # Get API key from environment
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
@@ -64,13 +68,31 @@ if not OPENROUTER_API_KEY:
   sys.exit(1)
 
 # Path to store credentials
-CONFIG_DIR = os.path.expanduser("./")
+CONFIG_DIR = SCRIPT_DIR
 CREDENTIALS_PATH = os.path.join(CONFIG_DIR, "Google Calendar Client Secret.json")
 TOKEN_PATH = os.path.join(CONFIG_DIR, "token.json")
 # Google API scope
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
-# Default timezone
-TIMEZONE = "America/Los_Angeles"
+
+
+def get_local_timezone():
+  """Return the system's current IANA timezone name (e.g. 'Europe/London').
+
+  Reads the /etc/localtime symlink, which on macOS points at
+  .../zoneinfo/<Area>/<City>. Falls back to a sensible default if that fails.
+  """
+  try:
+    target = os.path.realpath("/etc/localtime")
+    marker = "zoneinfo/"
+    if marker in target:
+      return target.split(marker, 1)[1]
+  except Exception:
+    pass
+  return "America/Los_Angeles"
+
+
+# Timezone used for created events — follows whatever timezone the machine is in
+TIMEZONE = get_local_timezone()
 
 
 # ------------------ Helper Functions ------------------
@@ -228,7 +250,8 @@ def main():
     try:
       notion_calendar_url = get_notion_calendar_url(event_id)
       print(f"Opening Notion calendar URL: {notion_calendar_url}")
-      subprocess.run(['open', notion_calendar_url], check=False)
+      # Open in the Notion Calendar app rather than the default browser (Arc)
+      subprocess.run(['open', '-a', 'Notion Calendar', notion_calendar_url], check=False)
     except Exception as e:
       print(f"Warning: Could not create Notion URL, using Google Calendar URL instead. Error: {e}")
       print(f"Opening Google calendar URL: {google_calendar_url}")
