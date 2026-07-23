@@ -27,19 +27,39 @@ process_clipboard_image() {
   echo "$result_text"
 }
 
+# Trim leading/trailing whitespace
+trim() {
+  local s="$1"
+  s="${s#"${s%%[![:space:]]*}"}"
+  echo "${s%"${s##*[![:space:]]}"}"
+}
+
 # Check if text is a URL pattern
 is_url() {
   local text="$1"
-  if [[ $text =~ ^(https?://|www\.) ]] || [[ $text =~ ^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)+(/.*)?$ ]]; then
+  if [[ $text =~ ^(https?://|www\.) ]] || [[ $text =~ ^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:[0-9]+)?(/.*)?$ ]] || [[ $text =~ ^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)+(:[0-9]+)?(/.*)?$ ]]; then
     return 0  # true
   else
     return 1  # false
   fi
 }
 
+# Prepend a scheme if missing (http for localhost, https otherwise)
+add_scheme() {
+  local text="$1"
+  if [[ ! $text =~ ^https?:// ]]; then
+    if [[ $text =~ ^(localhost|127\.0\.0\.1|0\.0\.0\.0) ]]; then
+      text="http://$text"
+    else
+      text="https://$text"
+    fi
+  fi
+  echo "$text"
+}
+
 # Open content based on type (file, URL, or search)
 open_content() {
-  local text="$1"
+  local text="$(trim "$1")"
   
   if [ -z "$text" ]; then
     echo "No text to process"
@@ -62,11 +82,7 @@ open_content() {
       echo "Opened folder: $text"
     fi
   elif is_url "$text"; then
-    # It's a URL
-    # Add https:// if the URL doesn't start with http:// or https://
-    if [[ ! $text =~ ^https?:// ]]; then
-      text="https://$text"
-    fi
+    text="$(add_scheme "$text")"
     open "$text"
     echo "Opened URL: $text"
   else
@@ -145,7 +161,7 @@ get_clipboard_text() {
 
 # Open content in incognito mode
 open_content_incognito() {
-  local text="$1"
+  local text="$(trim "$1")"
   
   if [ -z "$text" ]; then
     echo "No text to process"
@@ -160,12 +176,7 @@ open_content_incognito() {
   local url=""
   
   if is_url "$text"; then
-    # Add https:// if the URL doesn't start with http:// or https://
-    if [[ ! $text =~ ^https?:// ]]; then
-      url="https://$text"
-    else
-      url="$text"
-    fi
+    url="$(add_scheme "$text")"
   else
     # Not a URL, do a Google search
     local query=$(echo "$text" | perl -MURI::Escape -ne 'print uri_escape($_)')
