@@ -5,6 +5,10 @@
 # Ensure Homebrew binaries (pngpaste, zbarimg, tesseract) are on PATH when run by Raycast
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
+# Raycast runs scripts with no locale set, which makes pbpaste/pbcopy fall back
+# to MacRoman instead of UTF-8, garbling text with curly quotes/dashes/emoji
+export LC_CTYPE=UTF-8
+
 # Process image from clipboard - check for QR codes and perform OCR
 process_clipboard_image() {
   local temp_image="$(mktemp -t raycast_clipboard_image).png"

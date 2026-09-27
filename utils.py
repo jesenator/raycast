@@ -15,12 +15,21 @@ load_dotenv()
 NOTION_API_TOKEN = os.getenv("NOTION_API_TOKEN")
 NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
 
+# Raycast launches scripts with a minimal environment: PATH may lack Homebrew
+# (where pngpaste lives) and no locale is set, which makes pbpaste/pbcopy fall
+# back to MacRoman instead of UTF-8. Text containing curly quotes or dashes
+# then fails to decode and gets misreported as an empty clipboard. Fix the
+# environment once at import so every subprocess call inherits it.
+os.environ["PATH"] = os.pathsep.join(["/opt/homebrew/bin", "/usr/local/bin", os.environ.get("PATH", "")])
+os.environ["LC_CTYPE"] = "UTF-8"
+
 # ------------------- Clipboard Functions -------------------
 
 def get_clipboard_text(): # not used currently
   """Get text content from clipboard."""
   try:
-    text = subprocess.run(['pbpaste'], capture_output=True, text=True).stdout.strip()
+    text = subprocess.run(['pbpaste'], capture_output=True, text=True,
+                          errors='replace').stdout.strip()
     if not text:
       print("Error: Clipboard is empty")
       return None
@@ -47,22 +56,29 @@ def get_clipboard_content():
   # First check if there's an image on the clipboard
   with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
     img_path = temp_file.name
-  
+
   try:
     # Try to get image from clipboard using pngpaste
-    result = subprocess.run(['pngpaste', img_path], 
-                           capture_output=True, check=False)
-    
-    if result.returncode == 0:
+    try:
+      result = subprocess.run(['pngpaste', img_path],
+                             capture_output=True, check=False)
+      has_image = result.returncode == 0
+    except FileNotFoundError:
+      # pngpaste isn't installed — treat as "no image" and fall through to
+      # text rather than reporting the clipboard as empty.
+      has_image = False
+
+    if has_image:
       # Image found on clipboard
       with open(img_path, 'rb') as img_file:
         img_data = img_file.read()
       os.unlink(img_path)
       return {'type': 'image', 'content': img_data}
-    
+
     # Fall back to text
     os.unlink(img_path)
-    text = subprocess.run(['pbpaste'], capture_output=True, text=True).stdout
+    text = subprocess.run(['pbpaste'], capture_output=True, text=True,
+                          errors='replace').stdout
     if not text.strip():
       print("Error: Clipboard is empty")
       return None
@@ -316,7 +332,7 @@ def get_selected_text_or_all():
   print(f"active_app: {active_app}")
   
   # Save initial clipboard
-  initial_clipboard = subprocess.run(['pbpaste'], capture_output=True, text=True).stdout
+  initial_clipboard = subprocess.run(['pbpaste'], capture_output=True, text=True, errors='replace').stdout
   
   # Copy selected text
   subprocess.run([
@@ -328,7 +344,7 @@ def get_selected_text_or_all():
   time.sleep(0.05)
   
   # Get clipboard contents
-  selected_text = subprocess.run(['pbpaste'], capture_output=True, text=True).stdout
+  selected_text = subprocess.run(['pbpaste'], capture_output=True, text=True, errors='replace').stdout
 
   # If nothing was selected or clipboard hasn't changed, select all
   if not selected_text or selected_text == initial_clipboard:
@@ -347,8 +363,8 @@ def get_selected_text_or_all():
     ])
     
     time.sleep(0.05)
-    selected_text = subprocess.run(['pbpaste'], capture_output=True, text=True).stdout
-  
+    selected_text = subprocess.run(['pbpaste'], capture_output=True, text=True, errors='replace').stdout
+
   return selected_text, initial_clipboard, active_app
 
 def paste_text(active_app):

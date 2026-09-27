@@ -12,6 +12,10 @@
 # @raycast.description Toggle URL between localhost:8080 and civai.org domains
 # @raycast.author Jesse Gilbert
 
+# Raycast runs scripts with no locale set, which makes pbpaste/pbcopy fall
+# back to MacRoman instead of UTF-8
+export LC_CTYPE=UTF-8
+
 # Get URL from clipboard
 url=$(pbpaste)
 

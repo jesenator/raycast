@@ -12,10 +12,16 @@
 # @raycast.description Paste clipboard text with an extra newline between each line
 # @raycast.author Jesse Gilbert
 
+import os
 import subprocess
 
+# Raycast runs scripts with no locale set, which makes pbpaste/pbcopy fall
+# back to MacRoman instead of UTF-8; force UTF-8 so non-ASCII text survives
+os.environ["LC_CTYPE"] = "UTF-8"
+
 def main():
-  text = subprocess.run(['pbpaste'], capture_output=True, text=True).stdout
+  text = subprocess.run(['pbpaste'], capture_output=True, text=True,
+                        errors='replace').stdout
   
   if not text.strip():
     print("Error: Clipboard is empty")

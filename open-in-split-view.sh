@@ -9,6 +9,10 @@
 # @raycast.icon 📐
 # @raycast.description Opens the current Arc tab URL 3 more times in split view
 
+# Raycast runs scripts with no locale set, which makes pbpaste/pbcopy fall
+# back to MacRoman instead of UTF-8 (would garble the clipboard save/restore)
+export LC_CTYPE=UTF-8
+
 # Get current Arc tab URL
 current_url=$(osascript -e 'tell application "Arc" to get URL of active tab of front window')
 

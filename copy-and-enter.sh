@@ -9,6 +9,10 @@
 # @raycast.icon ⌨️
 # @raycast.description Simulate Cmd+A, Cmd+C, then Enter keypresses to save content to clipboard before submitting
 
+# Raycast runs scripts with no locale set, which makes pbpaste/pbcopy fall
+# back to MacRoman instead of UTF-8
+export LC_CTYPE=UTF-8
+
 # Configuration
 delay_time=0.01
 
