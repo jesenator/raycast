@@ -1,0 +1,5 @@
+node_modules/
+dist/
+raycast-env.d.ts
+# Your meetings: maps private Notion pages and your calendar. Copy meetings.config.example.ts.
+src/meetings.config.ts

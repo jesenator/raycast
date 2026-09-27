@@ -1,0 +1,83 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "nth-clipboard",
+  "title": "Nth Clipboard Item",
+  "description": "Paste or copy the nth item from Raycast's clipboard history (1 = current clipboard, up to 6).",
+  "icon": "icon.png",
+  "author": "jesse_gilbert",
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "paste-nth",
+      "title": "Paste Nth Clipboard Item",
+      "description": "Paste the nth item from clipboard history (1-6, 1 = current clipboard)",
+      "mode": "no-view",
+      "arguments": [
+        {
+          "name": "n",
+          "placeholder": "1-6",
+          "type": "text",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "copy-nth",
+      "title": "Copy Nth Clipboard Item",
+      "description": "Copy the nth item from clipboard history back to the top of the clipboard (1-6)",
+      "mode": "no-view",
+      "arguments": [
+        {
+          "name": "n",
+          "placeholder": "1-6",
+          "type": "text",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "paste-2nd",
+      "title": "Paste 2nd Clipboard Item",
+      "description": "Paste the second-most-recent clipboard item (hotkey-friendly)",
+      "mode": "no-view"
+    },
+    {
+      "name": "paste-3rd",
+      "title": "Paste 3rd Clipboard Item",
+      "description": "Paste the third-most-recent clipboard item (hotkey-friendly)",
+      "mode": "no-view"
+    },
+    {
+      "name": "paste-4th",
+      "title": "Paste 4th Clipboard Item",
+      "description": "Paste the fourth-most-recent clipboard item (hotkey-friendly)",
+      "mode": "no-view",
+      "disabledByDefault": true
+    },
+    {
+      "name": "paste-5th",
+      "title": "Paste 5th Clipboard Item",
+      "description": "Paste the fifth-most-recent clipboard item (hotkey-friendly)",
+      "mode": "no-view",
+      "disabledByDefault": true
+    },
+    {
+      "name": "paste-6th",
+      "title": "Paste 6th Clipboard Item",
+      "description": "Paste the sixth-most-recent clipboard item (hotkey-friendly)",
+      "mode": "no-view",
+      "disabledByDefault": true
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.100.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  },
+  "scripts": {
+    "dev": "ray develop",
+    "build": "ray build -e dist"
+  }
+}

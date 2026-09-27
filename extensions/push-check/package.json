@@ -1,0 +1,135 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "push-check",
+  "title": "Push Check",
+  "description": "See what would go out on the next push: outgoing and incoming commits vs origin/main, files grouped by folder, which Cloudflare workers would rebuild, and an AI summary of each side.",
+  "icon": "icon.png",
+  "author": "jesse_gilbert",
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "push-check",
+      "title": "Push Check",
+      "description": "Review outgoing and incoming changes for a repo and its worktrees",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "repoPath",
+      "title": "Repository",
+      "description": "Main checkout of the repo to review. Its git worktrees are discovered automatically and appear in the dropdown.",
+      "type": "directory",
+      "required": true,
+      "default": "/Users/jesenator/Documents/kairos/kairos"
+    },
+    {
+      "name": "baseRef",
+      "title": "Base ref",
+      "description": "What a push or merge would land on. Outgoing = commits on the worktree's branch that this ref lacks; incoming = the reverse.",
+      "type": "textfield",
+      "required": false,
+      "default": "origin/main"
+    },
+    {
+      "name": "fetchOnOpen",
+      "title": "Refresh",
+      "label": "Run git fetch when the command opens",
+      "description": "Fetches the remote in the background so ahead/behind counts are current. Turn off if you are often offline.",
+      "type": "checkbox",
+      "required": false,
+      "default": true
+    },
+    {
+      "name": "editorCli",
+      "title": "Editor CLI",
+      "description": "VS Code compatible CLI used by Open File and Open Diff. Cursor's lives inside Cursor.app; VS Code's is usually /usr/local/bin/code.",
+      "type": "textfield",
+      "required": false,
+      "default": "/Applications/Cursor.app/Contents/Resources/app/bin/cursor"
+    },
+    {
+      "name": "autoDeployWorkers",
+      "title": "Auto-deploying workers",
+      "description": "Comma-separated Cloudflare workers whose Workers Builds deploy from main. Other apps with a wrangler config count as manual deploys. The Convex backend always counts (CI deploys it on push to main).",
+      "type": "textfield",
+      "required": false,
+      "default": "kairos-forms, gcp-apply, spar-website, kairos-website, pathfinder-website, spar-dashboard, spar-eval-tools, ingest-proxy"
+    },
+    {
+      "name": "aiProvider",
+      "title": "AI summaries",
+      "description": "Who summarizes the outgoing and incoming diffs.",
+      "type": "dropdown",
+      "required": false,
+      "default": "openrouter",
+      "data": [
+        {
+          "title": "OpenRouter",
+          "value": "openrouter"
+        },
+        {
+          "title": "Anthropic API",
+          "value": "anthropic"
+        },
+        {
+          "title": "Off",
+          "value": "off"
+        }
+      ]
+    },
+    {
+      "name": "autoSummarize",
+      "title": "",
+      "label": "Summarize automatically when the command opens",
+      "description": "Summaries are cached per commit range, so reopening the command does not re-run the model.",
+      "type": "checkbox",
+      "required": false,
+      "default": true
+    },
+    {
+      "name": "model",
+      "title": "Model",
+      "description": "OpenRouter model id (anthropic/claude-opus-5 by default; anthropic/claude-haiku-4.5 is about 5x cheaper). With the Anthropic provider the anthropic/ prefix is dropped and dots become dashes.",
+      "type": "textfield",
+      "required": false,
+      "default": "anthropic/claude-opus-5"
+    },
+    {
+      "name": "apiKey",
+      "title": "API key",
+      "description": "OpenRouter or Anthropic key. Leave empty to read OPENROUTER_API_KEY / ANTHROPIC_API_KEY from the env file below.",
+      "type": "password",
+      "required": false
+    },
+    {
+      "name": "apiKeyEnvFile",
+      "title": "API key env file",
+      "description": "Dotenv file to read the key from when the API key field is empty.",
+      "type": "file",
+      "required": false,
+      "default": "/Users/jesenator/Documents/kairos/kairos/lab/ashby/.env"
+    },
+    {
+      "name": "maxDiffChars",
+      "title": "Max diff characters sent to the model",
+      "description": "Diffs longer than this are truncated before summarizing (lockfiles and binaries are always skipped).",
+      "type": "textfield",
+      "required": false,
+      "default": "80000"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^2.2.1",
+    "@raycast/utils": "^2.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.17",
+    "@types/react": "19.0.10",
+    "typescript": "^5.5.0"
+  },
+  "scripts": {
+    "dev": "ray develop",
+    "build": "ray build -e dist"
+  }
+}

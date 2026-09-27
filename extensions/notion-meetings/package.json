@@ -1,0 +1,64 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "notion-meetings",
+  "title": "Notion Meetings",
+  "description": "Open the next page of each recurring meeting in Notion, add agenda items without opening it, and create the page from its template when nobody has made it yet.",
+  "icon": "icon.png",
+  "author": "jesse_gilbert",
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "meetings",
+      "title": "Meetings",
+      "subtitle": "Notion",
+      "description": "Your recurring meetings and 1:1s, each at its next Notion page",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "notionToken",
+      "title": "Notion token",
+      "description": "Notion integration token. Leave empty to read NOTION_API_KEY from the env file below.",
+      "type": "password",
+      "required": false
+    },
+    {
+      "name": "notionEnvFile",
+      "title": "Notion env file",
+      "description": "Dotenv file holding NOTION_API_KEY, used when the token field is empty.",
+      "type": "file",
+      "required": false,
+      "default": "/Users/jesenator/Documents/kairos/kairos/lab/notion/.env.local"
+    },
+    {
+      "name": "googleSecretsDir",
+      "title": "Google login folder",
+      "description": "Folder with oauth_client.json and token.json from a Google OAuth login (needs the calendar.readonly scope), e.g. the Kairos repo's lab/lib/.secrets/google. Leave empty to skip the calendar and use each meeting's usual weekday.",
+      "type": "directory",
+      "required": false,
+      "default": "/Users/jesenator/Documents/kairos/kairos/lab/lib/.secrets/google"
+    },
+    {
+      "name": "initials",
+      "title": "Your initials",
+      "description": "Prefixed to items you add under an Agenda heading, for meetings configured with useInitials.",
+      "type": "textfield",
+      "required": false,
+      "default": "JG"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^2.2.1",
+    "@raycast/utils": "^2.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.17",
+    "@types/react": "19.0.10",
+    "typescript": "^5.5.0"
+  },
+  "scripts": {
+    "dev": "ray develop",
+    "build": "ray build -e dist"
+  }
+}
