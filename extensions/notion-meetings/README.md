@@ -55,7 +55,8 @@ meeting, and a grey **No entry yet** tag until the page has an entry for that da
   levels deep, nested toggles included) and goes right under the template's divider, or at
   the top of pages without one. Pages without a template get the headings of their latest
   entry.
-- **⌘[** opens the most recent past entry.
+- **⌘[** opens the most recent past entry, and **⌘]** the meeting after the one shown (its
+  entry, or a confirm step that adds one from the Template).
 
 ## Actions (database rows)
 
@@ -69,9 +70,13 @@ meeting, and a grey **No entry yet** tag until the page has an entry for that da
 | Create Page and Add Item       | ⌘⏎       | not created            |
 | Copy Link                      | ⌘C       | page exists            |
 | Open Previous Meeting          | ⌘[       | everywhere             |
+| Open / Create Next Meeting     | ⌘]       | everywhere             |
 | Open Database                  | ⌘⇧D      | everywhere             |
 | Create Page for Another Date…  | ⌘N       | page exists            |
 | Refresh                        | ⌘R       | everywhere             |
+
+**⌘]** goes one meeting past the row: the next existing page if it comes no later than the
+following calendar event (else the usual weekday), or the create form for that date.
 
 **Add Item** takes one item per line and a heading to put them under (the dropdown lists the
 page's headings, nested ones as `Prep › Alex`). It preselects the last heading you used for

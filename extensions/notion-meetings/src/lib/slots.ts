@@ -1,6 +1,6 @@
 import { CalendarUnavailable, upcomingEvents, type CalEvent } from "./calendar";
 import type { DbSlot, PageSlot, Slot } from "./config";
-import { addDays, isoDay, nextWeekday } from "./dates";
+import { addDays, isoDay, nextWeekday, parseIsoDay } from "./dates";
 import { Notion, undatedPages, upcomingPages, type Block, type MeetingPage } from "./notion";
 import { entriesOf } from "./sessions";
 
@@ -28,7 +28,17 @@ export type SlotState = {
   meeting?: NextMeeting;
   entry?: { id: string; date: string };
   previousEntry?: { id: string; date: string };
+  /** The meeting after the one the row shows (⌘]): its page or entry when one exists, else when to make one. */
+  following?: Following;
   error?: string;
+};
+
+export type Following = {
+  date: string;
+  source?: "calendar" | "weekday";
+  event?: EventInfo;
+  page?: MeetingPage;
+  entry?: { id: string; date: string };
 };
 
 export type LoadResult = { slots: SlotState[]; calendarNote?: string; calendarFixUrl?: string; loadedAt: string };
@@ -48,6 +58,25 @@ function nextMeeting(slot: Slot, events: CalEvent[] | null, now: Date): NextMeet
   return { date: isoDay(nextWeekday(now, slot.weekdays)), source: "weekday" };
 }
 
+/** The meeting after `after` (YYYY-MM-DD): the next matching calendar event on a later day, else the usual weekday. */
+function followingMeeting(slot: Slot, events: CalEvent[] | null, after: string): NextMeeting | undefined {
+  const e = (events ?? []).find((x) => matches(slot, x) && isoDay(x.start) > after);
+  if (e) return { date: isoDay(e.start), source: "calendar", event: info(e) };
+  if (!slot.weekdays.length) return undefined;
+  return { date: isoDay(nextWeekday(addDays(parseIsoDay(after), 1), slot.weekdays)), source: "weekday" };
+}
+
+/** For database rows: the next existing page if it comes no later than the next meeting, else that meeting. */
+function followingFor(slot: DbSlot, current: string, pages: MeetingPage[], events: CalEvent[] | null): Following | undefined {
+  const meeting = followingMeeting(slot, events, current);
+  const page = pages.find((p) => p.date > current);
+  if (page && (!meeting || page.date <= meeting.date)) {
+    const sameDay = (events ?? []).find((e) => matches(slot, e) && isoDay(e.start) === page.date);
+    return { date: page.date, page, event: sameDay && info(sameDay) };
+  }
+  return meeting;
+}
+
 /** Page-based 1:1 row: the next meeting from the calendar, matched to the page's dated entries. */
 export function resolvePageSlot(slot: PageSlot, blocks: Block[], events: CalEvent[] | null, now: Date): SlotState {
   const meeting = nextMeeting(slot, events, now);
@@ -58,6 +87,8 @@ export function resolvePageSlot(slot: PageSlot, blocks: Block[], events: CalEven
   const previousEntry = previous && { id: previous.id, date: previous.date };
   if (!meeting) return { slotId: slot.id, later: [], unscheduled: true, previousEntry };
   const entry = entries.find((e) => e.date === meeting.date);
+  const after = followingMeeting(slot, events, meeting.date);
+  const afterEntry = after && entries.find((e) => e.date === after.date);
   return {
     slotId: slot.id,
     later: [],
@@ -65,6 +96,7 @@ export function resolvePageSlot(slot: PageSlot, blocks: Block[], events: CalEven
     event: meeting.event,
     entry: entry && { id: entry.id, date: entry.date },
     previousEntry,
+    following: after && { ...after, entry: afterEntry && { id: afterEntry.id, date: afterEntry.date } },
   };
 }
 
@@ -83,13 +115,15 @@ export function resolveSlot(
 
   if (first && (!firstEventDay || first.date <= firstEventDay)) {
     const sameDay = mine.find((e) => isoDay(e.start) === first.date);
-    return { slotId: slot.id, next: first, later: rest, event: sameDay && info(sameDay) };
+    const following = followingFor(slot, first.date, rest, events);
+    return { slotId: slot.id, next: first, later: rest, event: sameDay && info(sameDay), following };
   }
   const upcoming = nextMeeting(slot, events, now);
   if (!upcoming) return { slotId: slot.id, later: pages, unscheduled: true };
+  const following = followingFor(slot, upcoming.date, pages, events);
   const draft = undated[0];
-  if (draft) return { slotId: slot.id, next: draft, later: pages, event: upcoming.event, assignDate: upcoming };
-  return { slotId: slot.id, later: pages, missing: upcoming };
+  if (draft) return { slotId: slot.id, next: draft, later: pages, event: upcoming.event, assignDate: upcoming, following };
+  return { slotId: slot.id, later: pages, missing: upcoming, following };
 }
 
 /** How far back an undated automation draft still counts as the next meeting's page. */

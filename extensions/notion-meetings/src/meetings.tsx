@@ -30,7 +30,7 @@ import {
 } from "./lib/notion";
 import { prefs } from "./lib/prefs";
 import { createEntry, entriesOf, entryContent, templateOf, wholeEntrySection, type Entry } from "./lib/sessions";
-import { loadSlots, type EventInfo, type NextMeeting, type SlotState } from "./lib/slots";
+import { loadSlots, type EventInfo, type Following, type NextMeeting, type SlotState } from "./lib/slots";
 
 const ICONS: Record<Slot["icon"], Icon> = {
   "person-lines": Icon.PersonLines,
@@ -75,6 +75,39 @@ function sourceNote(slot: Slot, m: NextMeeting): string {
     return `From your calendar: "${m.event?.summary?.trim()}"${time}.`;
   }
   return `No matching calendar event, so this is the next ${weekdayNames(slot.weekdays)}.`;
+}
+
+/** Tooltip/description for the meeting after the one shown. */
+function followingNote(slot: Slot, f: Following): string {
+  if (f.source === "calendar" && f.event) return sourceNote(slot, { date: f.date, source: "calendar", event: f.event });
+  return `No later calendar event, so this is the ${weekdayNames(slot.weekdays)} after.`;
+}
+
+const NEXT_SHORTCUT: Keyboard.Shortcut = { modifiers: ["cmd"], key: "]" };
+
+/** ⌘] on a database row: open the following meeting's page, or make it from the template. */
+function NextMeetingAction(props: { slot: DbSlot; following?: Following; onChanged: () => void }) {
+  const { slot, following: f, onChanged } = props;
+  if (!f) return null;
+  if (f.page) {
+    const page = f.page;
+    return (
+      <Action
+        title={`Open Next Meeting (${formatDay(f.date)})`}
+        icon={Icon.Redo}
+        shortcut={NEXT_SHORTCUT}
+        onAction={() => openPage(page)}
+      />
+    );
+  }
+  return (
+    <Action.Push
+      title={`Create Next Meeting (${formatDay(f.date)})…`}
+      icon={Icon.Redo}
+      shortcut={NEXT_SHORTCUT}
+      target={<CreatePageForm slot={slot} date={f.date} note={followingNote(slot, f)} onChanged={onChanged} />}
+    />
+  );
 }
 
 /** Give an undated automation page its meeting date, then open it (opens anyway if the date write fails). */
@@ -188,7 +221,8 @@ function SlotRow(props: { slot: DbSlot; state?: SlotState; initials: string; onC
   );
   const common = (
     <>
-      {state?.later.slice(0, 3).map((pg) => (
+      <NextMeetingAction slot={slot} following={state?.following} onChanged={onChanged} />
+      {state?.later.filter((pg) => pg.id !== state.following?.page?.id).slice(0, 3).map((pg) => (
         <Action
           key={pg.id}
           title={`Open ${formatDay(pg.date)} Page`}
@@ -581,6 +615,33 @@ async function createEntryAndOpen(slot: PageSlot, date: string, onChanged: () =>
   }
 }
 
+/** Confirm step before adding a dated entry to a running 1:1 page (it writes to a page the other person sees). */
+function CreateEntryForm(props: { slot: PageSlot; date: string; note: string; onChanged: () => void }) {
+  const { slot, note, onChanged } = props;
+  const [date, setDate] = useState<Date | null>(parseIsoDay(props.date));
+  return (
+    <Form
+      navigationTitle={`New ${slot.title} entry`}
+      actions={
+        <ActionPanel>
+          <Action.SubmitForm
+            title="Add Entry and Open"
+            icon={Icon.NewDocument}
+            onSubmit={async () => {
+              if (!date) return;
+              await createEntryAndOpen(slot, isoDay(date), onChanged);
+              await popToRoot({ clearSearchBar: true });
+            }}
+          />
+        </ActionPanel>
+      }
+    >
+      <Form.Description title={slot.title} text={`${note}\nThe entry copies the page's Template.`} />
+      <Form.DatePicker id="date" title="Date" type={Form.DatePicker.Type.Date} value={date} onChange={setDate} />
+    </Form>
+  );
+}
+
 function PageSlotRow(props: { slot: PageSlot; state?: SlotState; initials: string; onChanged: () => void }) {
   const { slot, state, initials, onChanged } = props;
   const icon = ICONS[slot.icon];
@@ -672,6 +733,28 @@ function PageSlotRow(props: { slot: PageSlot; state?: SlotState; initials: strin
             />
           </ActionPanel.Section>
           <ActionPanel.Section>
+            {state.following?.entry ? (
+              <Action
+                title={`Open Next Meeting (${formatDay(state.following.date)})`}
+                icon={Icon.Redo}
+                shortcut={NEXT_SHORTCUT}
+                onAction={() => openEntry(slot, state.following!.entry!.id)}
+              />
+            ) : state.following ? (
+              <Action.Push
+                title={`Add Next Meeting's Entry (${formatDay(state.following.date)})…`}
+                icon={Icon.Redo}
+                shortcut={NEXT_SHORTCUT}
+                target={
+                  <CreateEntryForm
+                    slot={slot}
+                    date={state.following.date}
+                    note={followingNote(slot, state.following)}
+                    onChanged={onChanged}
+                  />
+                }
+              />
+            ) : null}
             {state.previousEntry ? (
               <Action
                 title={`Open Previous Meeting (${formatDay(state.previousEntry.date)})`}
