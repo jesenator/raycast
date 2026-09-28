@@ -232,6 +232,41 @@ function SlotRow(props: { slot: DbSlot; state?: SlotState; initials: string; onC
     );
   }
 
+  if (state.unscheduled) {
+    const note = "No upcoming page and nothing on your calendar. Enter opens the latest page; ⌘N makes one for a date you pick.";
+    return (
+      <List.Item
+        icon={icon}
+        title={slot.title}
+        subtitle="Not on your calendar"
+        keywords={[slot.database]}
+        accessories={[{ tag: { value: "Unscheduled", color: Color.SecondaryText }, tooltip: note }, { text: slot.database }]}
+        actions={
+          <ActionPanel>
+            <ActionPanel.Section>
+              <Action title="Open Latest Meeting" icon={Icon.ArrowNe} onAction={() => openPrevious(slot)} />
+              <Action.Push
+                title="Create Page for a Date…"
+                icon={Icon.NewDocument}
+                shortcut={{ modifiers: ["cmd"], key: "n" }}
+                target={
+                  <CreatePageForm
+                    slot={slot}
+                    date={isoDay(new Date())}
+                    note="It isn't on your calendar, so pick the date."
+                    onChanged={onChanged}
+                  />
+                }
+              />
+              <Action.Open title="Open Database" icon={Icon.List} target={slot.databaseUrl} shortcut={{ modifiers: ["cmd", "shift"], key: "d" }} />
+            </ActionPanel.Section>
+            <ActionPanel.Section>{refresh}</ActionPanel.Section>
+          </ActionPanel>
+        }
+      />
+    );
+  }
+
   if (state.next) {
     const page = state.next;
     const assign = state.assignDate;
@@ -555,6 +590,26 @@ function PageSlotRow(props: { slot: PageSlot; state?: SlotState; initials: strin
 
   if (!state) {
     return <List.Item icon={icon} title={slot.title} subtitle="Loading…" accessories={[{ text: slot.database }]} />;
+  }
+  if (state.unscheduled) {
+    return (
+      <List.Item
+        icon={icon}
+        title={slot.title}
+        subtitle="Not on your calendar"
+        accessories={[{ tag: { value: "Unscheduled", color: Color.SecondaryText } }, { text: slot.database }]}
+        actions={
+          <ActionPanel>
+            <Action
+              title={state.previousEntry ? "Open Latest Meeting" : "Open Page"}
+              icon={Icon.ArrowNe}
+              onAction={() => openEntry(slot, state.previousEntry?.id)}
+            />
+            {refresh}
+          </ActionPanel>
+        }
+      />
+    );
   }
   if (state.error || !state.meeting) {
     const error = state.error ?? "No meeting found";

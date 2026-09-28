@@ -26,7 +26,9 @@ One `Meetings` command lists your meetings in the order and sections (`group`) o
 row is the soonest meeting of that kind:
 
 - **Page exists**: the page dated today or later whose Name starts with one of the row's
-  prefixes. Subtitle is the day plus the calendar time when an event matches. Extra title
+  prefixes. A page's date is the @date mention in its title when there is one, else its
+  date column: templates stamp the creation day into both, and when a meeting moves people
+  tend to fix only the title. Subtitle is the day plus the calendar time when an event matches. Extra title
   words (e.g. "discuss the offer") show on the right.
 - **Not created** (orange tag): no page for the soonest meeting yet. The date comes from the
   next matching Google Calendar event, else the meeting's usual weekday(s). This also fires
@@ -36,6 +38,8 @@ row is the soonest meeting of that kind:
   next meeting, and Enter or Add Item sets its Date to the next matching calendar event. The
   title is left alone unless it holds a literal "@Today", which becomes the usual @date
   title. ⌥⏎ opens it without touching anything.
+- **Unscheduled** (grey tag, rows with `weekdays: []`): no upcoming page and nothing on the
+  calendar. Enter opens the latest page, and ⌘N makes one for a date you pick.
 
 **Running-page rows** (`kind: "page"`) are 1:1s kept on one page ("Me <> Name 1:1s") with a
 dated entry per meeting: a heading carrying an @date mention, newest first, usually below a

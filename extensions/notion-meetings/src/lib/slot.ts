@@ -20,7 +20,11 @@ type BaseSlot = {
   group: "Syncs" | "1:1s";
   /** A calendar event is this meeting when every pattern matches its title. */
   calendarMatch: RegExp[];
-  /** Fallback when the calendar has no matching event: the usual weekdays (0 = Sunday). */
+  /**
+   * Fallback when the calendar has no matching event: the usual weekdays (0 = Sunday). Leave
+   * it empty for meetings without a fixed rhythm: the row then says "Not on your calendar"
+   * and opens the latest page, instead of guessing a date.
+   */
   weekdays: number[];
   icon: "person-lines" | "crown" | "bubble" | "calendar" | "people" | "person";
 };

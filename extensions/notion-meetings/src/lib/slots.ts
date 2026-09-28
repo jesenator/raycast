@@ -22,6 +22,8 @@ export type SlotState = {
   assignDate?: NextMeeting;
   /** Set when the soonest meeting has no page at all, with the date a new page should get. */
   missing?: NextMeeting;
+  /** No upcoming page, no calendar event, and no usual weekday to guess from (`weekdays: []`). */
+  unscheduled?: boolean;
   /** Page-based 1:1s: the next meeting, and the page's dated entries for it and for the last one. */
   meeting?: NextMeeting;
   entry?: { id: string; date: string };
@@ -39,11 +41,11 @@ export function matches(slot: Slot, e: CalEvent): boolean {
   return slot.calendarMatch.every((re) => re.test(e.summary));
 }
 
-function nextMeeting(slot: Slot, events: CalEvent[] | null, now: Date): NextMeeting {
+function nextMeeting(slot: Slot, events: CalEvent[] | null, now: Date): NextMeeting | undefined {
   const first = (events ?? []).find((e) => matches(slot, e));
-  return first
-    ? { date: isoDay(first.start), source: "calendar", event: info(first) }
-    : { date: isoDay(nextWeekday(now, slot.weekdays)), source: "weekday" };
+  if (first) return { date: isoDay(first.start), source: "calendar", event: info(first) };
+  if (!slot.weekdays.length) return undefined;
+  return { date: isoDay(nextWeekday(now, slot.weekdays)), source: "weekday" };
 }
 
 /** Page-based 1:1 row: the next meeting from the calendar, matched to the page's dated entries. */
@@ -51,16 +53,18 @@ export function resolvePageSlot(slot: PageSlot, blocks: Block[], events: CalEven
   const meeting = nextMeeting(slot, events, now);
   const today = isoDay(now);
   const entries = entriesOf(blocks);
-  const entry = entries.find((e) => e.date === meeting.date);
   // Newest-first pages, but pick by date so an oldest-first page works too.
   const previous = entries.filter((e) => e.date < today).sort((a, b) => b.date.localeCompare(a.date))[0];
+  const previousEntry = previous && { id: previous.id, date: previous.date };
+  if (!meeting) return { slotId: slot.id, later: [], unscheduled: true, previousEntry };
+  const entry = entries.find((e) => e.date === meeting.date);
   return {
     slotId: slot.id,
     later: [],
     meeting,
     event: meeting.event,
     entry: entry && { id: entry.id, date: entry.date },
-    previousEntry: previous && { id: previous.id, date: previous.date },
+    previousEntry,
   };
 }
 
@@ -82,6 +86,7 @@ export function resolveSlot(
     return { slotId: slot.id, next: first, later: rest, event: sameDay && info(sameDay) };
   }
   const upcoming = nextMeeting(slot, events, now);
+  if (!upcoming) return { slotId: slot.id, later: pages, unscheduled: true };
   const draft = undated[0];
   if (draft) return { slotId: slot.id, next: draft, later: pages, event: upcoming.event, assignDate: upcoming };
   return { slotId: slot.id, later: pages, missing: upcoming };

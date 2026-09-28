@@ -1,10 +1,16 @@
 import type { DbSlot } from "./config";
+import { addDays, isoDay, parseIsoDay } from "./dates";
 
 /** 2026-03-11 is the first version with template-based page creation and the `position` append param. */
 const NOTION_VERSION = "2026-03-11";
 const API = "https://api.notion.com/v1";
 
-type RichText = { type: string; plain_text?: string; text?: { content: string; link?: { url: string } | null } };
+type RichText = {
+  type: string;
+  plain_text?: string;
+  text?: { content: string; link?: { url: string } | null };
+  mention?: { type: string; date?: { start: string } };
+};
 
 export type Block = {
   id: string;
@@ -87,14 +93,24 @@ function dateProp(slot: DbSlot): string {
   return slot.dateProperty ?? "Date";
 }
 
+/**
+ * A page's meeting date: the @date mention in its title when there is one, else its date
+ * column. Templates stamp the creation day into both, and when a meeting moves people fix the
+ * title and leave the column (a "Board search - @September 30" page dated September 25).
+ */
 function toMeetingPage(p: any, slot: DbSlot): MeetingPage {
+  const title: RichText[] = p.properties?.Name?.title ?? [];
+  const mentioned = title.find((t) => t.type === "mention" && t.mention?.type === "date")?.mention?.date?.start;
   return {
     id: p.id,
     url: p.url,
-    title: plain(p.properties?.Name?.title),
-    date: p.properties?.[dateProp(slot)]?.date?.start?.slice(0, 10) ?? "",
+    title: plain(title),
+    date: (mentioned ?? p.properties?.[dateProp(slot)]?.date?.start ?? "").slice(0, 10),
   };
 }
+
+/** How far before today to fetch by date column, to catch pages whose title date is later than their column. */
+const DATE_DRIFT_DAYS = 14;
 
 /** Name starts with any of the meeting's title prefixes. */
 function titleFilter(slot: DbSlot): object {
@@ -111,9 +127,11 @@ async function queryPages(n: Notion, slot: DbSlot, dateFilter: object, direction
   return res.results.map((p) => toMeetingPage(p, slot));
 }
 
-/** This meeting's pages dated today or later, soonest first. */
-export function upcomingPages(n: Notion, slot: DbSlot, today: string): Promise<MeetingPage[]> {
-  return queryPages(n, slot, { on_or_after: today }, "ascending", 5);
+/** This meeting's pages dated today or later (by title date, else date column), soonest first. */
+export async function upcomingPages(n: Notion, slot: DbSlot, today: string): Promise<MeetingPage[]> {
+  const from = isoDay(addDays(parseIsoDay(today), -DATE_DRIFT_DAYS));
+  const pages = await queryPages(n, slot, { on_or_after: from }, "ascending", 25);
+  return pages.filter((p) => p.date >= today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5);
 }
 
 /** This meeting's pages with no Date, created on or after `since`, newest first (automation pre-creates). */
@@ -142,9 +160,11 @@ export async function datePage(n: Notion, slot: DbSlot, page: MeetingPage, date:
   await n.call("PATCH", `pages/${page.id}`, { properties });
 }
 
-/** The most recent page dated before today. */
+/** The most recent page dated before today (by title date, else date column). */
 export async function previousPage(n: Notion, slot: DbSlot, today: string): Promise<MeetingPage | null> {
-  return (await queryPages(n, slot, { before: today }, "descending", 1))[0] ?? null;
+  const to = isoDay(addDays(parseIsoDay(today), DATE_DRIFT_DAYS));
+  const pages = await queryPages(n, slot, { before: to }, "descending", 25);
+  return pages.filter((p) => p.date && p.date < today).sort((a, b) => b.date.localeCompare(a.date))[0] ?? null;
 }
 
 function titleRichText(slot: DbSlot, date: string) {
