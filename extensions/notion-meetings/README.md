@@ -106,6 +106,8 @@ in `src/lib/slot.ts`, and `src/meetings.config.example.ts` shows one row of each
   the usual "Me <> Name" pattern and ignores reversed titles, which tend to be one-offs. For
   reviews, a lookahead like `/^(?!.*performance).*\breview\b/i` skips performance reviews.
 - **Weekdays**: the fallback when no calendar event matches (0 = Sunday).
+- **`dateProperty`**: the database's date column, when it isn't called "Date" (Notion
+  property names are case-sensitive, and some databases have a lowercase "date").
 - Template ids come from `GET /v1/data_sources/{id}/templates`.
 
 Preferences:

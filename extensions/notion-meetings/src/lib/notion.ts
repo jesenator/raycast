@@ -82,12 +82,17 @@ function plain(rt: RichText[] | undefined): string {
   return (rt ?? []).map((t) => t.plain_text ?? t.text?.content ?? "").join("");
 }
 
-function toMeetingPage(p: any): MeetingPage {
+/** The database's date column. Most call it "Date"; some were made with a lowercase "date". */
+function dateProp(slot: DbSlot): string {
+  return slot.dateProperty ?? "Date";
+}
+
+function toMeetingPage(p: any, slot: DbSlot): MeetingPage {
   return {
     id: p.id,
     url: p.url,
     title: plain(p.properties?.Name?.title),
-    date: p.properties?.Date?.date?.start?.slice(0, 10) ?? "",
+    date: p.properties?.[dateProp(slot)]?.date?.start?.slice(0, 10) ?? "",
   };
 }
 
@@ -99,11 +104,11 @@ function titleFilter(slot: DbSlot): object {
 
 async function queryPages(n: Notion, slot: DbSlot, dateFilter: object, direction: "ascending" | "descending", size: number) {
   const res = await n.call<{ results: any[] }>("POST", `data_sources/${slot.dataSourceId}/query`, {
-    filter: { and: [titleFilter(slot), { property: "Date", date: dateFilter }] },
-    sorts: [{ property: "Date", direction }],
+    filter: { and: [titleFilter(slot), { property: dateProp(slot), date: dateFilter }] },
+    sorts: [{ property: dateProp(slot), direction }],
     page_size: size,
   });
-  return res.results.map(toMeetingPage);
+  return res.results.map((p) => toMeetingPage(p, slot));
 }
 
 /** This meeting's pages dated today or later, soonest first. */
@@ -117,14 +122,14 @@ export async function undatedPages(n: Notion, slot: DbSlot, since: string): Prom
     filter: {
       and: [
         titleFilter(slot),
-        { property: "Date", date: { is_empty: true } },
+        { property: dateProp(slot), date: { is_empty: true } },
         { timestamp: "created_time", created_time: { on_or_after: since } },
       ],
     },
     sorts: [{ timestamp: "created_time", direction: "descending" }],
     page_size: 3,
   });
-  return res.results.map(toMeetingPage);
+  return res.results.map((p) => toMeetingPage(p, slot));
 }
 
 /**
@@ -132,7 +137,7 @@ export async function undatedPages(n: Notion, slot: DbSlot, since: string): Prom
  * holds a literal "@Today" (an automation can leave one), which becomes the usual @date title.
  */
 export async function datePage(n: Notion, slot: DbSlot, page: MeetingPage, date: string): Promise<void> {
-  const properties: Record<string, unknown> = { Date: { date: { start: date } } };
+  const properties: Record<string, unknown> = { [dateProp(slot)]: { date: { start: date } } };
   if (/@today/i.test(page.title)) properties.Name = { title: titleRichText(slot, date) };
   await n.call("PATCH", `pages/${page.id}`, { properties });
 }
@@ -150,7 +155,7 @@ function titleRichText(slot: DbSlot, date: string) {
 }
 
 function meetingProperties(slot: DbSlot, date: string) {
-  return { Name: { title: titleRichText(slot, date) }, Date: { date: { start: date } } };
+  return { Name: { title: titleRichText(slot, date) }, [dateProp(slot)]: { date: { start: date } } };
 }
 
 /**
@@ -173,11 +178,11 @@ export async function createMeetingPage(
     template: { type: "template_id", template_id: slot.templateId, timezone: timeZone },
   });
   const blocks = await waitForContent(n, created.id, timeoutMs);
-  const fresh = toMeetingPage(await n.call("GET", `pages/${created.id}`));
+  const fresh = toMeetingPage(await n.call("GET", `pages/${created.id}`), slot);
   if (fresh.date !== date || !fresh.title.startsWith(slot.newTitle.before.trim())) {
     await n.call("PATCH", `pages/${created.id}`, { properties: meetingProperties(slot, date) });
   }
-  return { page: { ...toMeetingPage(created), date, title: fresh.title }, blocks };
+  return { page: { ...toMeetingPage(created, slot), date, title: fresh.title }, blocks };
 }
 
 /** Poll until the page has blocks and the count has stopped growing. */

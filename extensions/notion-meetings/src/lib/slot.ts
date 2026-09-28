@@ -30,6 +30,8 @@ export type DbSlot = BaseSlot & {
   dataSourceId: string;
   /** The database itself, for "Open Database". */
   databaseUrl: string;
+  /** Name of the database's date column when it isn't "Date" (property names are case-sensitive). */
+  dateProperty?: string;
   templateId: string;
   /** A page belongs to this meeting when its Name starts with any of these (spellings drift: "Check in", "Check-in"). */
   titlePrefixes: string[];
