@@ -68,6 +68,15 @@ async function openPage(page: MeetingPage) {
   await open(page.url);
 }
 
+/**
+ * The row's state, unless it was cached before the row changed kind (running page to database
+ * or back): that shape doesn't fit the new row, so it shows as loading until the fresh load lands.
+ */
+function stateFor(slot: Slot, state: SlotState | undefined): SlotState | undefined {
+  if (!state || state.error || state.unscheduled) return state;
+  return (slot.kind === "page" ? state.meeting : (state.next ?? state.missing)) ? state : undefined;
+}
+
 /** Where a meeting's date came from, for tooltips and form descriptions. */
 function sourceNote(slot: Slot, m: NextMeeting): string {
   if (m.source === "calendar") {
@@ -172,7 +181,7 @@ export default function Meetings() {
               <PageSlotRow
                 key={slot.id}
                 slot={slot}
-                state={states.get(slot.id)}
+                state={stateFor(slot, states.get(slot.id))}
                 initials={p.initials ?? ""}
                 onChanged={revalidate}
               />
@@ -180,7 +189,7 @@ export default function Meetings() {
               <SlotRow
                 key={slot.id}
                 slot={slot}
-                state={states.get(slot.id)}
+                state={stateFor(slot, states.get(slot.id))}
                 initials={p.initials ?? ""}
                 onChanged={revalidate}
               />
