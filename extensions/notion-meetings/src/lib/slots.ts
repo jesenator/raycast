@@ -2,7 +2,7 @@ import { CalendarUnavailable, upcomingEvents, type CalEvent } from "./calendar";
 import type { DbSlot, PageSlot, Slot } from "./config";
 import { addDays, isoDay, nextWeekday, parseIsoDay } from "./dates";
 import { Notion, undatedPages, upcomingPages, type Block, type MeetingPage } from "./notion";
-import { entriesOf } from "./sessions";
+import { entriesOf, templateOf } from "./sessions";
 
 /** A calendar event, JSON-safe (the list state is cached by Raycast as JSON). */
 export type EventInfo = { summary: string; start: string; allDay: boolean; link?: string };
@@ -28,6 +28,8 @@ export type SlotState = {
   meeting?: NextMeeting;
   entry?: { id: string; date: string };
   previousEntry?: { id: string; date: string };
+  /** Page-based 1:1s: the page's "Template" toggle, for "Open Template". */
+  template?: string;
   /** The meeting after the one the row shows (⌘]): its page or entry when one exists, else when to make one. */
   following?: Following;
   error?: string;
@@ -85,7 +87,8 @@ export function resolvePageSlot(slot: PageSlot, blocks: Block[], events: CalEven
   // Newest-first pages, but pick by date so an oldest-first page works too.
   const previous = entries.filter((e) => e.date < today).sort((a, b) => b.date.localeCompare(a.date))[0];
   const previousEntry = previous && { id: previous.id, date: previous.date };
-  if (!meeting) return { slotId: slot.id, later: [], unscheduled: true, previousEntry };
+  const template = templateOf(blocks)?.id;
+  if (!meeting) return { slotId: slot.id, later: [], unscheduled: true, previousEntry, template };
   const entry = entries.find((e) => e.date === meeting.date);
   const after = followingMeeting(slot, events, meeting.date);
   const afterEntry = after && entries.find((e) => e.date === after.date);
@@ -96,6 +99,7 @@ export function resolvePageSlot(slot: PageSlot, blocks: Block[], events: CalEven
     event: meeting.event,
     entry: entry && { id: entry.id, date: entry.date },
     previousEntry,
+    template,
     following: after && { ...after, entry: afterEntry && { id: afterEntry.id, date: afterEntry.date } },
   };
 }

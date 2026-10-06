@@ -16,7 +16,7 @@ import {
 import { showFailureToast, useCachedPromise, useCachedState, usePromise } from "@raycast/utils";
 import { useMemo, useState } from "react";
 import { MissingToken, notionClient } from "./lib/client";
-import { SLOTS, pageUrl, type DbSlot, type PageSlot, type Slot } from "./lib/config";
+import { SLOTS, pageUrl, templateUrl, type DbSlot, type PageSlot, type Slot } from "./lib/config";
 import { formatDay, formatTime, isoDay, parseIsoDay, weekdayNames } from "./lib/dates";
 import {
   addItems,
@@ -93,6 +93,7 @@ function followingNote(slot: Slot, f: Following): string {
 }
 
 const NEXT_SHORTCUT: Keyboard.Shortcut = { modifiers: ["cmd"], key: "]" };
+const TEMPLATE_SHORTCUT: Keyboard.Shortcut = { modifiers: ["cmd"], key: "t" };
 
 /** ⌘] on a database row: open the following meeting's page, or make it from the template. */
 function NextMeetingAction(props: { slot: DbSlot; following?: Following; onChanged: () => void }) {
@@ -251,6 +252,7 @@ function SlotRow(props: { slot: DbSlot; state?: SlotState; initials: string; onC
         target={slot.databaseUrl}
         shortcut={{ modifiers: ["cmd", "shift"], key: "d" }}
       />
+      <Action.Open title="Open Template" icon={Icon.Layers} target={templateUrl(slot)} shortcut={TEMPLATE_SHORTCUT} />
     </>
   );
 
@@ -302,6 +304,7 @@ function SlotRow(props: { slot: DbSlot; state?: SlotState; initials: string; onC
                 }
               />
               <Action.Open title="Open Database" icon={Icon.List} target={slot.databaseUrl} shortcut={{ modifiers: ["cmd", "shift"], key: "d" }} />
+              <Action.Open title="Open Template" icon={Icon.Layers} target={templateUrl(slot)} shortcut={TEMPLATE_SHORTCUT} />
             </ActionPanel.Section>
             <ActionPanel.Section>{refresh}</ActionPanel.Section>
           </ActionPanel>
@@ -675,6 +678,9 @@ function PageSlotRow(props: { slot: PageSlot; state?: SlotState; initials: strin
               icon={Icon.ArrowNe}
               onAction={() => openEntry(slot, state.previousEntry?.id)}
             />
+            {state.template ? (
+              <Action title="Open Template" icon={Icon.Layers} shortcut={TEMPLATE_SHORTCUT} onAction={() => openEntry(slot, state.template)} />
+            ) : null}
             {refresh}
           </ActionPanel>
         }
@@ -773,6 +779,9 @@ function PageSlotRow(props: { slot: PageSlot; state?: SlotState; initials: strin
               />
             ) : null}
             {entry ? <Action title="Open Page at Top" icon={Icon.Document} onAction={() => openEntry(slot)} /> : null}
+            {state.template ? (
+              <Action title="Open Template" icon={Icon.Layers} shortcut={TEMPLATE_SHORTCUT} onAction={() => openEntry(slot, state.template)} />
+            ) : null}
             {state.event?.link ? <Action.OpenInBrowser title="Open Calendar Event" url={state.event.link} /> : null}
           </ActionPanel.Section>
           <ActionPanel.Section>{refresh}</ActionPanel.Section>

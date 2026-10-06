@@ -57,9 +57,19 @@ export type PageSlot = BaseSlot & {
 
 export type Slot = DbSlot | PageSlot;
 
-export function pageUrl(slot: PageSlot, blockId?: string): string {
-  const base = `https://www.notion.so/${slot.pageId.replace(/-/g, "")}`;
+/** A page's https link, scrolled to a block when given (`#<block id>`). */
+export function notionUrl(pageId: string, blockId?: string): string {
+  const base = `https://www.notion.so/${pageId.replace(/-/g, "")}`;
   return blockId ? `${base}#${blockId.replace(/-/g, "")}` : base;
+}
+
+export function pageUrl(slot: PageSlot, blockId?: string): string {
+  return notionUrl(slot.pageId, blockId);
+}
+
+/** The database template new pages are made from (template pages open like any other page). */
+export function templateUrl(slot: DbSlot): string {
+  return notionUrl(slot.templateId);
 }
 
 /**

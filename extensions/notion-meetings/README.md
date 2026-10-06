@@ -57,6 +57,7 @@ meeting, and a grey **No entry yet** tag until the page has an entry for that da
   entry.
 - **⌘[** opens the most recent past entry, and **⌘]** the meeting after the one shown (its
   entry, or a confirm step that adds one from the Template).
+- **⌘T** opens the page scrolled to its Template toggle, when it has one.
 
 ## Actions (database rows)
 
@@ -72,8 +73,12 @@ meeting, and a grey **No entry yet** tag until the page has an entry for that da
 | Open Previous Meeting          | ⌘[       | everywhere             |
 | Open / Create Next Meeting     | ⌘]       | everywhere             |
 | Open Database                  | ⌘⇧D      | everywhere             |
+| Open Template                  | ⌘T       | everywhere             |
 | Create Page for Another Date…  | ⌘N       | page exists            |
 | Refresh                        | ⌘R       | everywhere             |
+
+**⌘T** opens the database template new pages are made from (the row's `templateId`), to edit
+it in Notion.
 
 **⌘]** goes one meeting past the row: the next existing page if it comes no later than the
 following calendar event (else the usual weekday), or the create form for that date.
